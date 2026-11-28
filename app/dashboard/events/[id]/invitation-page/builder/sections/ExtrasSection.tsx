@@ -34,12 +34,8 @@ const WEDDING_SUBTYPES: { value: WeddingSubtype; label: string }[] = [
 
 export function ExtrasSection({ draft, invitationType, updateDraft, disabled }: Props) {
   const [hexDrafts, setHexDrafts] = useState<Record<number, string>>({});
-  const isWedding = invitationType
-    ? invitationType === "wedding"
-    : draft.template_id === "wedding-romantic" || draft.template_id === "luxe-editorial";
-  const isBirthday = invitationType
-    ? invitationType === "birthday"
-    : draft.template_id === "birthday-bold";
+  const isWedding = invitationType === "wedding";
+  const isBirthday = invitationType === "birthday";
 
   const accommodations = draft.accommodations || [];
   const colors = draft.colors_of_the_day || [];

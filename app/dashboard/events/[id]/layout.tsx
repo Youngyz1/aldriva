@@ -7,6 +7,7 @@ import { getEventTeamRole, hasEventOrOrganizerAccess } from "@/lib/event-auth";
 import { getEventSubNavTabs, type EventUserRole } from "@/lib/event-dashboard-navigation";
 import { ManagementShell } from "@/components/management/ManagementShell";
 import EventSwitcher from "@/components/events/EventSwitcher.client";
+import { EventBottomBar } from "@/components/nav/EventBottomBar";
 
 function iconForTab(id: string): string {
   const map: Record<string, string> = {
@@ -18,7 +19,7 @@ function iconForTab(id: string): string {
     memories: "Camera",
     "ticket-design": "Palette",
     "invitation-page": "Globe",
-    seating: "LayoutDashboard",
+    seating: "Armchair",
     team: "Users",
     edit: "Edit3",
   };
@@ -63,7 +64,6 @@ export default async function EventDashboardLayout({
     // Round 4 Rule 1: invitation tabs render for invitation-kind events only.
     isInvitationKind: (event as { kind?: string | null } | null)?.kind === "invitation",
   });
-  const base = `/dashboard/events/${eventId}`;
   const navGroups = [
     {
       items: tabs.map((tab) => ({
@@ -102,16 +102,32 @@ export default async function EventDashboardLayout({
 
   const mobileHeaderSlot = <EventSwitcher currentId={eventId} items={switcherItems} variant="light" />;
 
+  // Map userRole to EventBottomBar's expected type
+  const bottomBarRole: "owner" | "event_manager" | "ticket_scanner" | null =
+    userRole === "owner" ? "owner"
+    : userRole === "event_manager" ? "event_manager"
+    : userRole === "ticket_scanner" ? "ticket_scanner"
+    : null;
+
   return (
-    <ManagementShell
-      entityLabel="Event"
-      entityName={event.title ?? "Event"}
-      backHref="/dashboard"
-      navGroups={navGroups}
-      headerSlot={headerSlot}
-      mobileHeaderSlot={mobileHeaderSlot}
-    >
-      {children}
-    </ManagementShell>
+    <>
+      <ManagementShell
+        entityLabel="Event"
+        entityName={event.title ?? "Event"}
+        backHref="/dashboard"
+        navGroups={navGroups}
+        headerSlot={headerSlot}
+        mobileHeaderSlot={mobileHeaderSlot}
+        hideHamburger
+        bottomBarPadding
+      >
+        {children}
+      </ManagementShell>
+      <EventBottomBar
+        eventId={eventId}
+        userRole={bottomBarRole}
+        isInvitationKind={event.kind === "invitation"}
+      />
+    </>
   );
 }

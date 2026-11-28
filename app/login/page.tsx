@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 
 // ── Inner component that reads searchParams ──────────────────────
 function LoginForm() {
@@ -26,11 +27,15 @@ function LoginForm() {
   // Without this the redirect landed here silently and the user was told
   // nothing about why they had been signed out.
   const deletedNotice = searchParams.get("deleted") === "1";
+  const rawRedirect = searchParams.get("redirect");
+  const carriedRedirect = rawRedirect ? safeRedirectPath(rawRedirect, "/") : "/";
+  const signupHref =
+    carriedRedirect !== "/" ? `/signup?redirect=${encodeURIComponent(carriedRedirect)}` : "/signup";
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        const redirectUrl = searchParams.get("redirect") || "/";
+        const redirectUrl = safeRedirectPath(searchParams.get("redirect"), "/");
         router.push(redirectUrl);
       }
     });
@@ -43,7 +48,7 @@ function LoginForm() {
   async function handleGoogleLogin() {
     setGoogleLoading(true);
     setError("");
-    const redirectUrl = searchParams.get("redirect") || "/dashboard";
+    const redirectUrl = safeRedirectPath(searchParams.get("redirect"), "/dashboard");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -67,7 +72,17 @@ function LoginForm() {
     });
 
     if (loginError) {
-      setError(loginError.message);
+      const loginMsg = loginError.message.toLowerCase();
+      if (
+        loginMsg.includes("not confirmed") ||
+        (loginError as { code?: string }).code === "email_not_confirmed"
+      ) {
+        setError(
+          "Your email address is not confirmed yet. Open the confirmation email we sent you, then log in again."
+        );
+      } else {
+        setError(loginError.message);
+      }
       setLoading(false);
       return;
     }
@@ -111,7 +126,7 @@ function LoginForm() {
       }
     }
 
-    const redirectUrl = searchParams.get("redirect") || "/";
+    const redirectUrl = safeRedirectPath(searchParams.get("redirect"), "/");
     router.push(redirectUrl);
     router.refresh();
   }
@@ -134,7 +149,7 @@ function LoginForm() {
           <p className="text-zinc-500 mb-8">
             Don&apos;t have an account?{" "}
             <Link
-              href="/signup"
+              href={signupHref}
               className="text-orange-500 font-semibold hover:text-orange-600"
             >
               Sign up free

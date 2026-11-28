@@ -8,11 +8,18 @@
  * `createSupabaseAdmin()` itself.
  */
 
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
+import crypto from "crypto";
 import type { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getCapabilitiesForBusiness } from "@/lib/business-taxonomy";
-import { getBuiltStorefrontFeatures, resolveStorefrontFeatures } from "@/lib/storefront-features";
+import {
+  ONLINE_PAYMENT_CURRENCIES,
+  getBuiltStorefrontFeatures,
+  resolveStorefrontFeatures,
+} from "@/lib/storefront-features";
+import { resolveWebsiteTimezone } from "@/lib/date-timezone";
+import { resolveAcceptOrdersWhenClosed } from "@/lib/storefront-settings";
 import { getV2TemplateForWebsite, resolveStorefrontCurrency } from "@/lib/website-v2-theme";
 import { normalizeContent } from "@/lib/website-content";
 import { resolveOrderSchedule, validateScheduledOrderTime } from "@/lib/website-hours";
@@ -44,9 +51,9 @@ export interface OrderItemInput {
 export interface SubmitOrderRequestInput {
   slug: string;
   customerName: string;
-  customerPhone: string;
+  customerPhone?: string | null;
   customerEmail?: string | null;
-  fulfilmentType: "pickup" | "delivery";
+  fulfilmentType: "pickup" | "delivery" | "dine_in";
   deliveryAddress?: string | null;
   customerNote?: string | null;
   items: OrderItemInput[];
@@ -55,6 +62,10 @@ export interface SubmitOrderRequestInput {
   idempotencyKey?: string | null;
   hp?: string | null;
   scheduledFor?: string | null;
+  tableId?: string | null;
+  tableSessionId?: string | null;
+  tableLabel?: string | null;
+  guestTokenHash?: string | null;
 }
 
 export type SubmitOrderResult =
@@ -81,7 +92,9 @@ export type SubmitOrderResult =
         | "item_sold_out"
         | "invalid_options"
         | "unknown_option"
-        | "online_unavailable"
+        | "online_payment_unavailable"
+        | "online_payment_unsupported_currency"
+        | "online_payment_required"
         | "no_open_hours"
         | "invalid_schedule"
         | "db_error"
@@ -131,9 +144,9 @@ export async function submitOrderRequestWithClient(
       return { success: false, error: "rate_limited", message: "Too many requests. Please wait a moment." };
     }
 
-    const cleanPhone = normalizePhone(input.customerPhone || "");
-    if (cleanPhone) {
-      const phoneLimit = await checkRateLimit("orderRequestPhone", `phone:${cleanPhone}`);
+    const normalizedRateLimitPhone = normalizePhone(input.customerPhone || "");
+    if (normalizedRateLimitPhone) {
+      const phoneLimit = await checkRateLimit("orderRequestPhone", `phone:${normalizedRateLimitPhone}`);
       if (!phoneLimit.allowed) {
         return { success: false, error: "rate_limited", message: "Too many orders requested with this phone number." };
       }
@@ -145,8 +158,15 @@ export async function submitOrderRequestWithClient(
       return { success: false, error: "invalid_customer_info", message: "Please provide your full name." };
     }
 
-    if (!isValidPhoneNumber(input.customerPhone)) {
-      return { success: false, error: "invalid_customer_info", message: "Please provide a valid phone number." };
+    const isDineIn = input.fulfilmentType === "dine_in";
+    const rawPhone = (input.customerPhone || "").trim();
+    let cleanPhone: string | null = null;
+
+    if (!isDineIn || rawPhone.length > 0) {
+      if (!isValidPhoneNumber(rawPhone)) {
+        return { success: false, error: "invalid_customer_info", message: "Please provide a valid phone number." };
+      }
+      cleanPhone = rawPhone;
     }
 
     const customerEmail = (input.customerEmail || "").trim() || null;
@@ -154,11 +174,11 @@ export async function submitOrderRequestWithClient(
       return { success: false, error: "invalid_customer_info", message: "Please provide a valid email address." };
     }
 
-    if (input.fulfilmentType !== "pickup" && input.fulfilmentType !== "delivery") {
+    if (input.fulfilmentType !== "pickup" && input.fulfilmentType !== "delivery" && input.fulfilmentType !== "dine_in") {
       return { success: false, error: "fulfilment_unavailable", message: "Invalid fulfilment type." };
     }
 
-    const deliveryAddress = (input.deliveryAddress || "").trim() || null;
+    const deliveryAddress = isDineIn ? null : (input.deliveryAddress || "").trim() || null;
     if (input.fulfilmentType === "delivery") {
       if (!deliveryAddress || deliveryAddress.length < 5 || deliveryAddress.length > 500) {
         return { success: false, error: "invalid_customer_info", message: "Delivery address is required for delivery orders." };
@@ -215,7 +235,7 @@ export async function submitOrderRequestWithClient(
     // Resolve linked business & offerings
     const { data: business } = await admin
       .from("businesses")
-      .select("id, industry, category, business_type, offerings, country")
+      .select("id, industry, category, business_type, offerings, country, table_ordering_mode")
       .eq("organizer_id", organizerId)
       .order("created_at", { ascending: true })
       .limit(1)
@@ -253,7 +273,20 @@ export async function submitOrderRequestWithClient(
 
     const paymentMethod = options?.paymentMethod ?? "on_fulfilment";
     if (paymentMethod === "online" && !storefrontFeatures.onlinePayment) {
-      return { success: false, error: "online_unavailable", message: "Online payment is not available for this site." };
+      if (storefrontFeatures.status.onlinePayment.reason === "currency_not_supported") {
+        return {
+          success: false,
+          error: "online_payment_unsupported_currency",
+          // Built from the single currency gate so adding a currency later
+          // updates every message without touching this file.
+          message: `Online card payments are currently available only for ${ONLINE_PAYMENT_CURRENCIES.join(", ")} orders.`,
+        };
+      }
+      return {
+        success: false,
+        error: "online_payment_unavailable",
+        message: "Online card payment is not available for this order.",
+      };
     }
 
     if (input.fulfilmentType === "delivery" && !storefrontFeatures.delivery) {
@@ -269,12 +302,22 @@ export async function submitOrderRequestWithClient(
     if (idempotencyKey) {
       const { data: existingOrder } = await admin
         .from("orders")
-        .select("id, order_number, tracking_token, scheduled_for")
+        .select("id, order_number, tracking_token, scheduled_for, business_id, total_amount, currency, table_id")
         .eq("organizer_id", organizerId)
         .eq("idempotency_key", idempotencyKey)
         .maybeSingle();
 
       if (existingOrder) {
+        if (
+          (existingOrder.business_id && business?.id && existingOrder.business_id !== business.id) ||
+          (input.tableId && existingOrder.table_id && existingOrder.table_id !== input.tableId)
+        ) {
+          return {
+            success: false,
+            error: "invalid_submission",
+            message: "Idempotency key was already used for a different order payload.",
+          };
+        }
         return {
           success: true,
           orderId: existingOrder.id,
@@ -282,6 +325,133 @@ export async function submitOrderRequestWithClient(
           trackingToken: existingOrder.tracking_token,
           scheduledFor: existingOrder.scheduled_for,
         };
+      }
+    }
+
+    // 5b. Dine-In validation & table session resolution
+    let tableId: string | null = null;
+    let tableSessionId: string | null = null;
+    let tableLabel: string | null = null;
+    let guestTokenHash = input.guestTokenHash || null;
+    if (!guestTokenHash) {
+      try {
+        const cookieStore = await cookies();
+        const rawToken = cookieStore.get("aldriva_guest_token")?.value;
+        if (rawToken && rawToken.trim()) {
+          guestTokenHash = crypto.createHash("sha256").update(rawToken.trim()).digest("hex").toLowerCase();
+        }
+      } catch {
+        // cookies() may throw in isolated test environments
+      }
+    }
+
+    if (isDineIn) {
+      if (!business?.id) {
+        return { success: false, error: "invalid_submission", message: "No business linked for dine-in ordering." };
+      }
+
+      const tableOrderingMode = business.table_ordering_mode || "order_pay_later";
+      if (tableOrderingMode === "disabled") {
+        return { success: false, error: "ordering_disabled", message: "Table ordering is currently disabled for this restaurant." };
+      }
+      if (tableOrderingMode === "menu_only") {
+        return { success: false, error: "ordering_disabled", message: "Table ordering is configured to menu-only. Please call your server to order." };
+      }
+      if (tableOrderingMode === "pay_online_first" && paymentMethod !== "online") {
+        return {
+          success: false,
+          error: "online_payment_required",
+          message: "This restaurant requires online payment for table orders. Please complete payment with card.",
+        };
+      }
+
+      if (!input.tableId) {
+        return { success: false, error: "invalid_submission", message: "Scan the restaurant's table QR code before placing a dine-in order." };
+      }
+
+      if (input.tableId) {
+        const { data: tableRow } = await admin
+          .from("business_tables")
+          .select("id, label, is_active, business_id")
+          .eq("id", input.tableId)
+          .eq("business_id", business.id)
+          .maybeSingle();
+
+        if (!tableRow || !tableRow.is_active) {
+          return { success: false, error: "invalid_submission", message: "The requested table is inactive or unavailable." };
+        }
+        tableId = tableRow.id;
+        tableLabel = tableRow.label;
+
+        // Ensure active table session
+        if (input.tableSessionId) {
+          const { data: sessionRow } = await admin
+            .from("table_sessions")
+            .select("id, status")
+            .eq("id", input.tableSessionId)
+            .eq("business_id", business.id)
+            .eq("table_id", tableId)
+            .in("status", ["active", "bill_requested"])
+            .maybeSingle();
+          if (sessionRow) {
+            tableSessionId = sessionRow.id;
+          }
+        }
+
+        if (!tableSessionId) {
+          const { data: existingSession } = await admin
+            .from("table_sessions")
+            .select("id")
+            .eq("table_id", tableId)
+            .in("status", ["active", "bill_requested"])
+            .maybeSingle();
+
+          if (existingSession) {
+            tableSessionId = existingSession.id;
+          } else {
+            const syntheticHash = guestTokenHash || crypto.createHash("sha256").update(tableId + ":" + Date.now()).digest("hex");
+            const { data: newSession } = await admin
+              .from("table_sessions")
+              .insert({
+                table_id: tableId,
+                business_id: business.id,
+                session_token_hash: syntheticHash,
+                status: "active",
+              })
+              .select("id")
+              .maybeSingle();
+            if (newSession) {
+              tableSessionId = newSession.id;
+            }
+          }
+        }
+      }
+
+      // Check device pending order cap (max 2)
+      if (guestTokenHash) {
+        const { count: devicePendingCount } = await admin
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("guest_token_hash", guestTokenHash)
+          .eq("business_id", business.id)
+          .eq("dine_in_confirmation", "pending");
+
+        if (typeof devicePendingCount === "number" && devicePendingCount >= 2) {
+          return { success: false, error: "rate_limited", message: "Maximum 2 pending dine-in orders per device allowed. Please wait for staff confirmation." };
+        }
+      }
+
+      // Check table session pending order cap (max 4)
+      if (tableSessionId) {
+        const { count: sessionPendingCount } = await admin
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("table_session_id", tableSessionId)
+          .eq("dine_in_confirmation", "pending");
+
+        if (typeof sessionPendingCount === "number" && sessionPendingCount >= 4) {
+          return { success: false, error: "rate_limited", message: "Maximum 4 pending dine-in orders per table session allowed. Please wait for staff confirmation." };
+        }
       }
     }
 
@@ -293,10 +463,13 @@ export async function submitOrderRequestWithClient(
       .maybeSingle();
 
     const contentDoc = normalizeContent(contentRow?.content ?? {});
-    const metadata = (website.metadata && typeof website.metadata === "object" ? website.metadata : {}) as Record<string, unknown>;
-    const timeZone = typeof metadata.timezone === "string" ? metadata.timezone : undefined;
+    // One shared timezone rule (metadata.timezone, else Africa/Abidjan).
+    const timeZone = resolveWebsiteTimezone(website.metadata);
+    const acceptOrdersWhenClosed = resolveAcceptOrdersWhenClosed(website.metadata);
 
-    const schedule = resolveOrderSchedule(contentDoc.hours, timeZone);
+    const schedule = resolveOrderSchedule(contentDoc.hours, timeZone, new Date(), {
+      acceptOrdersWhenClosed,
+    });
     if (schedule.blocked) {
       return {
         success: false,
@@ -347,7 +520,7 @@ export async function submitOrderRequestWithClient(
     if (promotionLoad.error) {
       return { success: false, error: "db_error", message: "Failed to validate menu promotions." };
     }
-    const promotions = promotionLoad.promotions;
+    const promotions = promotionLoad.promotions.filter((p) => p.offer_type !== "highlight");
     const pricingNow = new Date();
 
     let assignments: NormalizedOptionAssignmentRow[] = [];
@@ -600,7 +773,7 @@ export async function submitOrderRequestWithClient(
     // 8. Collision-safe human-readable order number generation
     const randomHex = Math.floor(1000 + Math.random() * 9000);
     const dateStamp = new Date().toISOString().slice(2, 10).replace(/-/g, "");
-    let orderNumber = `ORD-${dateStamp}-${randomHex}`;
+    let orderNumber = isDineIn ? `DIN-${dateStamp}-${randomHex}` : `ORD-${dateStamp}-${randomHex}`;
 
     // Insert order with retry loop on order_number collision
     let insertedOrder: { id: string; order_number: string; tracking_token: string; scheduled_for: string | null } | null = null;
@@ -631,6 +804,11 @@ export async function submitOrderRequestWithClient(
           scheduled_for: finalScheduledFor,
           items: orderItemsSnapshot,
           idempotency_key: idempotencyKey,
+          table_id: tableId,
+          table_session_id: tableSessionId,
+          table_label: tableLabel,
+          guest_token_hash: guestTokenHash,
+          dine_in_confirmation: isDineIn ? "pending" : "not_applicable",
         })
         .select("id, order_number, tracking_token, scheduled_for")
         .maybeSingle();
@@ -638,7 +816,8 @@ export async function submitOrderRequestWithClient(
       if (insertError) {
         if (insertError.code === "23505" && insertError.message.includes("order_number")) {
           // Collision: retry with fresh random suffix
-          orderNumber = `ORD-${dateStamp}-${Math.floor(1000 + Math.random() * 9000)}`;
+          const retryHex = Math.floor(1000 + Math.random() * 9000);
+          orderNumber = isDineIn ? `DIN-${dateStamp}-${retryHex}` : `ORD-${dateStamp}-${retryHex}`;
           continue;
         }
         if (insertError.code === "23505" && insertError.message.includes("idempotency_key") && idempotencyKey) {
@@ -683,6 +862,7 @@ export async function submitOrderRequestWithClient(
         customer_phone: cleanPhone,
         customer_email: customerEmail,
         fulfilment_type: input.fulfilmentType,
+        table_label: tableLabel,
         delivery_address: deliveryAddress,
         currency,
         subtotal,

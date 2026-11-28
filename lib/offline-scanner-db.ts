@@ -30,9 +30,11 @@ export interface PendingScanRecord {
   scannedAt: string; // ISO string
   delegatingUserId?: string | null;
   currentUserId?: string | null;
+  /** Set only for a guest (account-less) scan; never combined with delegatingUserId/currentUserId. */
+  staffMemberId?: string | null;
   entranceId?: string | null;
   deviceId?: string | null;
-  syncStatus: "pending" | "syncing" | "synced" | "failed" | "conflict";
+  syncStatus: "pending" | "syncing" | "synced" | "failed" | "conflict" | "invalid";
   syncError?: string | null;
   syncedAt?: string | null;
   conflictReason?: string | null;
@@ -43,9 +45,11 @@ export interface SyncResult {
   synced: number;
   conflicts: number;
   failed: number;
+  /** True only when the sync endpoint itself answered 401 (not a network error). */
+  authError?: boolean;
   results: Array<{
     scan_id: string;
-    status: "synced" | "conflict" | "failed";
+    status: "synced" | "conflict" | "failed" | "invalid";
     action?: string;
     reason?: string;
     error?: string;
@@ -65,7 +69,7 @@ function getDb(): Promise<IDBPDatabase> {
   }
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db, _oldVersion) {
+      upgrade(db) {
         if (!db.objectStoreNames.contains(CACHE_STORE)) {
           db.createObjectStore(CACHE_STORE, { keyPath: "eventId" });
         }
@@ -203,7 +207,7 @@ export async function findOfflineTicket(
  * Queues an offline scan into scan_queue_v1 and updates the local cache
  * in scanner_cache_v1 so subsequent scans on this same device show "ALREADY CHECKED IN (offline)".
  */
-export async function queueOfflineScan(scan: PendingScanRecord): Promise<void> {
+export async function queueOfflineScan(scan: PendingScanRecord): Promise<boolean> {
   try {
     const db = await getDb();
     
@@ -225,8 +229,10 @@ export async function queueOfflineScan(scan: PendingScanRecord): Promise<void> {
         await db.put(CACHE_STORE, cached);
       }
     }
+    return true;
   } catch (err) {
     console.error("[offline-scanner-db] Error queueing offline scan:", err);
+    return false;
   }
 }
 
@@ -254,6 +260,13 @@ export async function getPendingScanCount(eventId: string): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+/** Strict variant for interfaces that must distinguish an empty queue from an unreadable one. */
+export async function getPendingScanCountStrict(eventId: string): Promise<number> {
+  const db = await getDb();
+  const all = await db.getAllFromIndex(QUEUE_STORE, "by_event", eventId);
+  return (all || []).filter((scan) => scan.syncStatus === "pending" || scan.syncStatus === "failed").length;
 }
 
 /**
@@ -320,6 +333,7 @@ export async function syncOfflineScans(
     scanned_at: s.scannedAt,
     delegating_user_id: s.delegatingUserId || null,
     current_user_id: s.currentUserId || null,
+    staff_member_id: s.staffMemberId || null,
     entrance_id: s.entranceId || null,
     device_id: s.deviceId || null,
   }));
@@ -353,6 +367,7 @@ export async function syncOfflineScans(
         synced: 0,
         conflicts: 0,
         failed: pending.length,
+        authError: res.status === 401,
         results: pending.map((s) => ({
           scan_id: s.scanId,
           status: "failed",
@@ -375,6 +390,14 @@ export async function syncOfflineScans(
           syncedAt: new Date().toISOString(),
           conflictReason: r.reason || "Conflict detected",
           syncError: r.reason || null,
+        });
+      } else if (r.status === "invalid") {
+        // Terminal: this payload can never succeed on retry (malformed
+        // scan_id/ticket_instance_id/scanned_at). Record stays in IndexedDB
+        // for diagnosis, same as every other status, but getPendingScans
+        // excludes "invalid" so the device stops retrying it.
+        await updateScanStatus(r.scan_id, "invalid", {
+          syncError: r.error || "Invalid scan",
         });
       } else {
         await updateScanStatus(r.scan_id, "failed", {

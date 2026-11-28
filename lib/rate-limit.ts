@@ -149,6 +149,12 @@ export const RATE_LIMITS = {
   invitationShareView: { limit: 60, windowSeconds: 60 },
 
   /**
+   * Stage 7b: guest Memories gallery reads (approved, non-reported photos).
+   * Anonymous per-IP bucket, same posture as invitationShareView. Fail-open.
+   */
+  invitationMemoriesView: { limit: 60, windowSeconds: 60 },
+
+  /**
    * Round 4: guest RSVP writes. Keyed per-IP AND per-token by callers
    * (two buckets per request): the token bucket bounds targeted RSVP
    * spam on a single invitation, the IP bucket bounds spray. Fail-open.
@@ -218,6 +224,12 @@ export const RATE_LIMITS = {
    */
   reservationCustomerCancel: { limit: 10, windowSeconds: 600 },
 
+  /**
+   * Phase 7 Stage D: Guest reservation change request submission.
+   * Keyed per-IP AND per-token by callers. Fail-open.
+   */
+  reservationChangeRequest: { limit: 10, windowSeconds: 600 },
+
   /** Kitchen invitation bootstrap: secret-link probing is denied on limiter failure. */
   kitchenInviteBootstrap: { limit: 12, windowSeconds: 600 },
 
@@ -244,6 +256,57 @@ export const RATE_LIMITS = {
 
   /** Courier location writes: 120 updates per 10 minutes, keyed by session hash. */
   courierLocation: { limit: 120, windowSeconds: 600 },
+
+  /**
+   * Phase 4+ event team invitation redemption.
+   * Per-invitation bucket: limits targeted redemption spam on a single invitation.
+   * Per-IP bucket: limits spray across all invitations from a given IP.
+   * Both are fail-closed; the enforcer uses AND logic (both must allow).
+   */
+  invitationRedemption: { limit: 5, windowSeconds: 600 },
+  ipInvitationRedemption: { limit: 100, windowSeconds: 3600 },
+
+  /**
+   * Phase 2: scan code issuance for printed receipt barcodes
+   * (POST /api/scan-codes/order and /reservation). Per-token-hash bucket
+   * limits targeted probing of a single tracking/lookup token; per-IP
+   * bucket limits spray across tokens from one source. Both fail-closed,
+   * same posture as event team invitation redemption above.
+   */
+  scanCodeOrderIssue: { limit: 10, windowSeconds: 600 },
+  ipScanCodeOrderIssue: { limit: 60, windowSeconds: 3600 },
+  scanCodeReservationIssue: { limit: 10, windowSeconds: 600 },
+  ipScanCodeReservationIssue: { limit: 60, windowSeconds: 3600 },
+  scanActionIssue: { limit: 30, windowSeconds: 600 },
+  ipScanAction: { limit: 300, windowSeconds: 600 },
+  userScanAction: { limit: 120, windowSeconds: 60 },
+
+  /**
+   * General booking form submissions per IP.
+   */
+  generalBookingRequestIp: { limit: 20, windowSeconds: 3600 },
+
+  /**
+   * General booking form submissions per phone number.
+   */
+  generalBookingRequestPhone: { limit: 10, windowSeconds: 3600 },
+
+  /**
+   * Vehicle rental public booking requests per IP.
+   */
+  rentalRequestIp: { limit: 15, windowSeconds: 3600 },
+
+  /**
+   * Public rental availability checks per IP (live date-picker polling).
+   * Generous limit — these are lightweight read-only queries.
+   */
+  rentalAvailabilityIp: { limit: 120, windowSeconds: 60 },
+
+  /**
+   * Public rental price quote requests per IP.
+   * Slightly lower limit than availability — a quote also fetches billing boundary.
+   */
+  rentalQuoteIp: { limit: 60, windowSeconds: 60 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;
@@ -286,6 +349,31 @@ export interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   retryAfter: number;
+  /** True when the limiter backend failed and this fail-closed result denied access. */
+  unavailable?: boolean;
+}
+
+export type FailClosedRateLimitFailure = {
+  reason: "missing_configuration" | "rpc_error" | "invalid_rpc_response" | "exception";
+  errorCode?: string;
+  errorName?: string;
+  httpStatus?: number;
+};
+
+function safeRateLimitErrorCode(value: unknown): string | undefined {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{1,32}$/.test(value) ? value : undefined;
+}
+
+function failClosedRateLimit(
+  onUnavailable: ((failure: FailClosedRateLimitFailure) => void) | undefined,
+  failure: FailClosedRateLimitFailure
+): RateLimitResult {
+  try {
+    onUnavailable?.(failure);
+  } catch {
+    // Diagnostics must never change the security decision.
+  }
+  return { allowed: false, remaining: 0, retryAfter: 60, unavailable: true };
 }
 
 /**
@@ -341,7 +429,8 @@ export async function checkRateLimit(
  */
 export async function checkRateLimitFailClosed(
   name: RateLimitName,
-  identifier: string
+  identifier: string,
+  onUnavailable?: (failure: FailClosedRateLimitFailure) => void
 ): Promise<RateLimitResult> {
   const { limit, windowSeconds } = RATE_LIMITS[name];
 
@@ -353,10 +442,19 @@ export async function checkRateLimitFailClosed(
       p_window_seconds: windowSeconds,
     });
 
-    if (error) return { allowed: false, remaining: 0, retryAfter: 60 };
+    if (error) {
+      const errorStatus = (error as unknown as { status?: unknown }).status;
+      const placeholderConfig = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co"
+        || process.env.SUPABASE_SERVICE_ROLE_KEY === "placeholder-service-role-key";
+      return failClosedRateLimit(onUnavailable, {
+        reason: placeholderConfig ? "missing_configuration" : "rpc_error",
+        errorCode: safeRateLimitErrorCode(error.code),
+        httpStatus: typeof errorStatus === "number" ? errorStatus : undefined,
+      });
+    }
     const row = Array.isArray(data) ? data[0] : data;
     if (!row || typeof row.allowed !== "boolean") {
-      return { allowed: false, remaining: 0, retryAfter: 60 };
+      return failClosedRateLimit(onUnavailable, { reason: "invalid_rpc_response" });
     }
 
     return {
@@ -364,8 +462,13 @@ export async function checkRateLimitFailClosed(
       remaining: Number(row.remaining ?? 0),
       retryAfter: Number(row.retry_after ?? 0),
     };
-  } catch {
-    return { allowed: false, remaining: 0, retryAfter: 60 };
+  } catch (error) {
+    const isMissingConfig = error instanceof Error && error.message === "Supabase service role is not configured.";
+    return failClosedRateLimit(onUnavailable, {
+      reason: isMissingConfig ? "missing_configuration" : "exception",
+      errorCode: safeRateLimitErrorCode((error as { code?: unknown })?.code),
+      errorName: error instanceof Error && /^[A-Za-z][A-Za-z0-9]{0,39}$/.test(error.name) ? error.name : undefined,
+    });
   }
 }
 

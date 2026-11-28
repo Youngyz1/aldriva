@@ -60,7 +60,7 @@ export async function POST(
 
   if (!result.success) {
     const status = result.error === "order_already_updated" ? 409 : result.error === "not_found" ? 404 : 400;
-    return courierJson({ error: result.message ?? "Delivery could not be started." }, status);
+    return courierJson({ errorCode: result.error, error: result.message ?? "Delivery could not be started." }, status);
   }
 
   return courierJson({ ok: true, status: "out_for_delivery" });

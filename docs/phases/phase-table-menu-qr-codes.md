@@ -1,10 +1,30 @@
-# Table & Menu QR Codes (planned feature under Phases 5–6)
+# Table & Menu QR Codes (Phases 5–6)
 
-> **STATUS: PLANNED — NOT STARTED (owner-decided 2026-10-20).**
-> Nothing in this document is built. No code, migration or database change exists for it. Everything below is the owner's decision, to be implemented later; this doc is the specification handed to the builder agent.
+> **STATUS: PHASES 1, 2, 3, AND 4 IMPLEMENTED AND VERIFIED (2026-10-28).**
+> - **Phase 1 (Database Foundation):** Migration 198 reconciled byte-identical (`db/migration_198_table_and_menu_qr_codes.sql` & `supabase/migrations/20261027180000_migration_198_table_and_menu_qr_codes.sql`), token hashing, active session constraints, security-definer RPCs.
+> - **Phase 2 (Merchant Management & Staff Workflow):** `/q/[code]` redirect route, merchant table & QR manager (`app/dashboard/org/[id]/tables`), waiter confirmation/decline actions (`lib/actions/orders.ts`), dashboard OrderCard waiter controls with pending pulse badge and `payAtTable` badge.
+> - **Phase 3 (Public Routing & Customer Journey):** Direct routing to published `/menu` or homepage storefront with table context; graceful error screens for unpublished sites, deleted/inactive tables, and disabled modes; customer confirmation modal with table badge; customer order tracking page (`/site/[slug]/orders/[token]`) with dine-in stepper and table info; server-side payment bypass protection (`pay_online_first` enforces card payment upfront).
+> - **Phase 4 (Running Table Bill & Session Closure):** One authoritative running bill per table session (`lib/table-bill.ts`), aggregating multiple orders, line items, chosen options, item quantities, and financial totals (total, paid online, unpaid balance); excludes cancelled and declined orders; customer-facing "View Bill" modal and "Request Bill from Waiter" action (`requestTableBill`) with staff notification dispatch; merchant dashboard active table "Bill Requested" status and "Settle Bill" modal (`StaffTableBillModal`) with one-click "Mark Paid & Release Table" action (`markTablePaidAndCloseSession`); safe table session closure releasing `table_id` partial unique index for immediate next-party seating; split bills explicitly excluded.
+> - **Test Suite:** 2,846 passed across 235 test files (0 regressions; 3 pre-existing unrelated failures preserved); 24/24 dedicated unit tests passed (6 `table-bill` + 18 `table-qr`); TypeScript (`tsconfig.build.json`) and ESLint 0 errors.
 > Cross-references: `docs/phases/phase-05-products-services.md` (menu catalogue), `docs/phases/phase-06-commerce.md` (orders + kitchen flow), `docs/phases/phase-kitchen-delivery.md` (kitchen/delivery workstream, migration 185 — read before writing SQL), `docs/phases/phase-12-advanced-web.md` (custom domains).
 
-## 0. Verification of the current state (2026-10-20)
+## Regression verification update — 2026-10-28
+
+- The live order schema contains `dine_in_confirmation`; the tracking page previously selected nonexistent `waiter_confirmation_state` and `waiter_confirmed_at` columns and then repeated them in its fallback, causing the observed `notFound()` result. The query now uses the schema field and the fallback uses only baseline columns.
+- A synthetic normal-site staging delivery rendered its tracking page and item list after reload. It remained pending; no kitchen action was available from the anonymous browser session.
+- The active QR code exercised in staging was a table QR and redirected to the published menu with the expected table context. The project had four active table codes and zero active menu-only codes, so a separate menu-QR order could not be submitted. The table-QR business requires online payment before preparation; no payment was initiated.
+- No database migration or settings change was made. See `docs/CURRENT-STATE.md` for checks and remaining verification limits.
+
+## Payment-state follow-up — 2026-10-29
+
+- When online payment is unavailable, table checkout hides the card action and directs guests to ask staff to take the order and settle at the table. Payment-intent failures identify unsupported currency with `online_payment_unsupported_currency`; the settings UI warns when Pay Online First is unavailable.
+- The customer tracking page derives its label from server-loaded `payment_method`, `payment_status`, and `payment_expires_at`. It reports Paid only for the authoritative `paid` status; online unpaid orders show awaiting payment or retry after expiry, and refunded orders remain distinct. English and French labels are present.
+- Table running bills aggregate paid and outstanding totals from the same order payment status. Staff table settlement refuses to close while an online order remains unpaid; online orders already paid, or cancelled orders, do not block closure.
+- Staff settlement requires the atomic `mark_table_paid_and_close_session(uuid, uuid, text, uuid)` RPC from migration 199. The migration register has its staging application status as unknown; verify the function exists before relying on the settlement action.
+- Online card payment is USD-only. FCFA businesses can display XOF/XAF amounts, but cannot complete a table order in `pay_online_first`; choose a mode that permits payment at the table until a supported online currency is available.
+- Focused local regression tests passed. No migration or staging data was changed.
+
+## 0. Original plan-time codebase audit (2026-10-20)
 
 All claims here are about **existing code** and are labelled.
 

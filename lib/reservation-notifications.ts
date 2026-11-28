@@ -2,6 +2,7 @@ import { createNotification } from "@/lib/notifications";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { BRAND } from "@/config/branding";
 import { Resend } from "resend";
+import { formatReservationTimeRange } from "@/lib/reservation-slots";
 
 export interface ReservationNotificationPayload {
   id: string;
@@ -12,31 +13,12 @@ export interface ReservationNotificationPayload {
   customer_email?: string | null;
   party_size: number;
   starts_at: string;
+  duration_minutes?: number | null;
+  ends_at?: string | null;
   siteTimezone: string;
   customer_note?: string | null;
   website_slug?: string;
   lookup_token?: string;
-}
-
-function formatStartsAt(startsAt: string, timeZone: string, locale: "en" | "fr"): string {
-  try {
-    return new Date(startsAt).toLocaleString(locale === "fr" ? "fr-FR" : "en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone,
-    });
-  } catch {
-    return new Date(startsAt).toLocaleString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
 }
 
 /**
@@ -74,7 +56,13 @@ export async function dispatchReservationNotifications(
 
     const orderLink = `/dashboard/org/${reservation.organizer_id}/reservations`;
     const title = `New table request #${reservation.reservation_number}`;
-    const when = formatStartsAt(reservation.starts_at, reservation.siteTimezone, "en");
+    const when = formatReservationTimeRange({
+      startsAt: reservation.starts_at,
+      endsAt: reservation.ends_at,
+      durationMinutes: reservation.duration_minutes,
+      timeZone: reservation.siteTimezone,
+      locale: "en",
+    });
     const body = `${reservation.customer_name} requested a table for ${reservation.party_size} on ${when}.`;
 
     try {
@@ -242,6 +230,8 @@ export interface ReservationStatusNotificationInput {
   status: "confirmed" | "declined" | "cancelled" | string;
   partySize: number;
   startsAt: string;
+  durationMinutes?: number | null;
+  endsAt?: string | null;
   siteTimezone: string;
   lookupToken: string;
   websiteSlug: string;
@@ -261,7 +251,13 @@ export async function dispatchCustomerReservationStatusEmail(
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const trackingUrl = `${BRAND.website}/site/${input.websiteSlug}/reservations/${input.lookupToken}`;
-    const when = formatStartsAt(input.startsAt, input.siteTimezone, "en");
+    const when = formatReservationTimeRange({
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+      durationMinutes: input.durationMinutes,
+      timeZone: input.siteTimezone,
+      locale: "en",
+    });
     let subject = `[${BRAND.name}] Table request #${input.reservationNumber} update`;
     let heading = `Table request #${input.reservationNumber} update`;
     let body = "";

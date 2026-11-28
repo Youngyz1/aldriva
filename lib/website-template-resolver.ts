@@ -23,6 +23,9 @@
 import type {
   Block,
   BlockType,
+  HeroBlock,
+  MenuEmbedBlock,
+  ProductsEmbedBlock,
 } from "./website-blocks";
 import {
   validateBlock,
@@ -30,14 +33,14 @@ import {
   normalizeCurrencyCode,
   KNOWN_BLOCK_TYPES,
 } from "./website-blocks";
-import type { ContentDoc, ContentKey } from "./website-content";
+import type { ContentDoc, ContentKey, ContentSocials } from "./website-content";
 import type { NavigationItem } from "./website-nav";
 import type {
   WebsiteTemplateV2,
   TemplateSection,
 } from "./website-template-v2";
 import { getFlagshipTemplate } from "./website-template-v2";
-import { FLAGSHIP_SAMPLES, STORE_PREVIEW_PRODUCTS } from "./website-template-samples";
+import { FLAGSHIP_SAMPLES, SHOWCASE_PREVIEW_MENU, SHOWCASE_PREVIEW_PROMOTIONS, STORE_PREVIEW_PRODUCTS } from "./website-template-samples";
 import type { TemplatePagePurpose } from "./website-template-v2";
 import { getCapabilitiesForBusiness } from "./business-taxonomy";
 import type { Capability } from "./business-taxonomy";
@@ -113,7 +116,7 @@ export interface ResolvedNavigationItem extends NavigationItem {
   pageSlug: string | null;
   anchor?: string;
   /** Optional commerce gate; nav appears only when the resolved feature is live. */
-  feature?: keyof StorefrontFeatureState;
+  feature?: keyof StorefrontFeatureState | "catalog";
 }
 
 export interface TemplateSourceMapEntry {
@@ -181,6 +184,11 @@ export interface TemplateResolutionOptions {
     offerHeading?: string;
     offerSubheading?: string;
     contactHeading?: string;
+    /** "Browse {catalog}" — {catalog} is replaced with the owner-named catalog label. */
+    heroCtaBrowseTemplate?: string;
+    heroCtaContact?: string;
+    /** Showcase closing banner heading when ordering is enabled ("Ready to order?"). */
+    closingHeadingOrdering?: string;
     navigationLabels?: Record<string, string>;
   };
   /** Locale-resolved headings/navigation used only by the Store template. */
@@ -338,6 +346,7 @@ interface BuildContext {
   storeCopy?: TemplateResolutionOptions["storeCopy"];
   timeZone?: string;
   now?: Date;
+  siteSlug?: string;
 }
 
 function take(ctx: BuildContext, field: ContentKey, slotId: string): unknown {
@@ -469,7 +478,16 @@ function sourceEntriesForBlock(
     add("heading", "hero.headline", "hero_headline", Boolean(object.heading) || !isValueAvailable("hero_headline"));
     add("subheading", "hero.subtext", "hero_subtext", Boolean(object.subheading));
     add("tagline", "hero.tagline", "tagline", Boolean(object.tagline));
-    add("image", "hero.image", "hero_image", Boolean(object.backgroundImage) || !isValueAvailable("hero_image"));
+    if (ctx.template.id === "showcase") {
+      const heroImageRows = indexedStrings(effectiveValue(ctx, "hero_images")).slice(0, (block as HeroBlock).images?.length ?? 0);
+      if (heroImageRows.length > 0) {
+        heroImageRows.forEach((row, index) => add("images[" + index + "].src", "hero.images", "hero_images", true, { itemIndex: row.index }));
+      } else {
+        add("images[0].src", "hero.images", "hero_image", Boolean(object.backgroundImage) || !isValueAvailable("hero_image"));
+      }
+    } else {
+      add("image", "hero.image", "hero_image", Boolean(object.backgroundImage) || !isValueAvailable("hero_image"));
+    }
     add("ctaLabel", "hero.cta_primary", "primary_cta_label", Boolean(object.ctaLabel));
     add("secondaryCtaLabel", "hero.cta_secondary", "secondary_cta_label", Boolean(object.secondaryCtaLabel));
     add("badge", "hero.open_tag", "hours", Boolean(object.badge), { subfield: "today_tag" });
@@ -587,25 +605,80 @@ function sourceEntriesForBlock(
       add("ctaLabel", "cta.button_label", "template_extras", Boolean(object.ctaLabel), { subfield: "ctaBandButtonLabel" });
       add("ctaHref", "cta.button_link", "template_extras", Boolean(object.ctaHref), { subfield: "ctaBandButtonLink" });
     }
+  } else if (block.type === "promotions_embed" && block.fallback) {
+    add("fallback.headline", "hero.headline", "hero_headline", Boolean(block.fallback.headline) || !isValueAvailable("hero_headline"));
+    add("fallback.subtext", "hero.subtext", "hero_subtext", Boolean(block.fallback.subtext));
+    add("fallback.image", "hero.image", "hero_image", Boolean(block.fallback.image) || !isValueAvailable("hero_image"));
+    add("fallback.buttonLabel", "hero.cta_primary", "primary_cta_label", Boolean(block.fallback.buttonLabel));
   }
 
   return entries;
 }
 
-function buildHero(ctx: BuildContext): Block {
+function buildHero(ctx: BuildContext): Block | null {
+  const isShowcase = ctx.template.id === "showcase";
   const primaryCtaLabel = asString(take(ctx, "primary_cta_label", "hero.cta_primary"));
   const hours = asRecord(take(ctx, "hours", "hero.open_tag") ?? take(ctx, "hours", "hours.table"));
   const badge = hours ? asString(hours.today_tag) : undefined;
   const isTableFlame = ctx.template.id === "restaurant-table-flame";
   const isSavannah = ctx.template.id === "restaurant-savannah";
   const isRestaurantEditorial = isTableFlame || isSavannah;
+
+  if (isShowcase) {
+    const heroImagesRaw = asStringArray(take(ctx, "hero_images", "hero.images"));
+    // Legacy single hero_image reads under the same "hero.images" slot id so
+    // sample/checklist bookkeeping never points at the retired "hero.image" slot.
+    const legacyHeroImage = asString(take(ctx, "hero_image", "hero.images"));
+    const heroImages = (heroImagesRaw && heroImagesRaw.length > 0
+      ? heroImagesRaw
+      : legacyHeroImage ? [legacyHeroImage] : []
+    ).slice(0, 6);
+    const heroImage = heroImages[0];
+    const heroHeadline = asString(take(ctx, "hero_headline", "hero.headline"));
+    const heroSubtext = asString(take(ctx, "hero_subtext", "hero.subtext"));
+    // Nothing filled in: the hero is hidden entirely.
+    if (heroImages.length === 0 && !heroHeadline && !heroSubtext) return null;
+    const images = heroImages.map((src, index) => ({ src, alt: `${heroHeadline || "Hero"} photo ${index + 1}` }));
+    const catalogName = resolveCatalogName(ctx);
+    const catalogPage = ctx.template.pages.find((p) => p.purpose === "catalog");
+    const contactPage = ctx.template.pages.find((p) => p.purpose === "contact");
+    const catalogHref = catalogPage
+      ? (ctx.siteSlug ? getSitePageHref(ctx.siteSlug, catalogPage.slug) : `/${encodeURIComponent(catalogPage.slug)}`)
+      : undefined;
+    const contactHref = contactPage
+      ? (ctx.siteSlug ? getSitePageHref(ctx.siteSlug, contactPage.slug) : `/${encodeURIComponent(contactPage.slug)}`)
+      : undefined;
+    const ordering = ctx.storefrontFeatures.ordering;
+    const browseTemplate = ctx.foodOrderCopy?.heroCtaBrowseTemplate ?? "Browse {catalog}";
+    const contactLabel = ctx.foodOrderCopy?.heroCtaContact ?? "Contact us";
+    const defaultCtaLabel = ordering ? browseTemplate.replace("{catalog}", catalogName ?? "menu") : contactLabel;
+    const defaultCtaHref = ordering ? catalogHref : contactHref;
+    const secondaryCtaLabel = asString(take(ctx, "secondary_cta_label", "hero.cta_secondary"));
+    return {
+      type: "hero",
+      variant: "full-bleed",
+      align: "left",
+      tagline: asString(take(ctx, "tagline", "hero.tagline")),
+      heading: heroHeadline,
+      subheading: heroSubtext,
+      // Back-compat convenience mirror of images[0] (builder canvas thumbnail, etc.).
+      backgroundImage: heroImage,
+      ...(images.length > 0 ? { images } : {}),
+      ctaLabel: primaryCtaLabel || defaultCtaLabel,
+      ctaHref: defaultCtaHref || "",
+      ...(secondaryCtaLabel && ordering && contactHref
+        ? { secondaryCtaLabel: contactLabel, secondaryCtaHref: contactHref }
+        : {}),
+    } as Block;
+  }
+
   const tagline = asString(take(ctx, "tagline", "hero.tagline"));
   const address = asString(effectiveValue(ctx, "address"));
   const area = address?.split(",").slice(-2).join(",").trim();
   const eyebrow = isTableFlame
     ? [asString(ctx.business.businessType), area].filter(Boolean).join(" · ") || tagline
     : tagline;
-  const today = isRestaurantEditorial ? resolveTodayHours(hours, ctx.timeZone) : null;
+  const today = isRestaurantEditorial ? resolveTodayHours(hours, ctx.timeZone, ctx.now) : null;
   const phone = asString(effectiveValue(ctx, "phone"));
   const metaPills = isTableFlame
     ? [
@@ -682,6 +755,38 @@ function buildFeatures(
   } as Block;
 }
 
+function buildShowcaseTrustStrip(ctx: BuildContext): Block | null {
+  // 1. Owner trust items
+  const trustItems = buildFeatureItems(take(ctx, "trust", "trust.items")).slice(0, 4);
+  // 2. Fallback: highlights (Savannah carry-over), only if no trust items
+  const baseItems: Array<{ title: string; description?: string; icon?: string }> =
+    trustItems.length > 0
+      ? trustItems
+      : buildFeatureItems(take(ctx, "highlights", "highlights.items")).slice(0, 4);
+  // 3. Auto-chips for live storefrontFeatures
+  const autoChips: Array<{ title: string; icon: string }> = [];
+  const sf = ctx.storefrontFeatures;
+  if (sf.ordering) autoChips.push({ title: "Order online", icon: "icontoolskitchen2" });
+  if (sf.delivery) autoChips.push({ title: "Delivery", icon: "icontruck" });
+  if (sf.pickup) autoChips.push({ title: "Pickup", icon: "iconshoppingbag" });
+  if (sf.reservations) autoChips.push({ title: "Reservations", icon: "iconcalendar" });
+  if (sf.onlinePayment) autoChips.push({ title: "Online payment", icon: "iconcreditcard" });
+  // Merge: owner items first, then auto-chips not already in owner titles
+  const ownerTitles = new Set(baseItems.map((it) => it.title.toLowerCase()));
+  const chips = autoChips.filter((c) => !ownerTitles.has(c.title.toLowerCase()));
+  const allItems = [...baseItems, ...chips].slice(0, 8);
+  if (allItems.length === 0) return null;
+  const extras = asRecord(effectiveValue(ctx, "template_extras"));
+  const scrollingEnabled = asString(extras?.servicesMarquee) !== "off";
+  return {
+    type: "features",
+    columns: 3,
+    variant: "trust_strip",
+    items: allItems,
+    scrollingEnabled,
+  } as Block;
+}
+
 function buildBusinessOfferings(ctx: BuildContext): Block | null {
   const selectedFacts = getSelectedFactOfferings(
     ctx.business.offerings,
@@ -703,6 +808,7 @@ function buildBusinessOfferings(ctx: BuildContext): Block | null {
 
 function buildAbout(ctx: BuildContext): Block {
   const isSavannah = ctx.template.id === "restaurant-savannah";
+  const isShowcase = ctx.template.id === "showcase";
   const stats = asRecordArray(take(ctx, "stats", "about.stats")) ?? [];
   const highlights = stats
     .map((row) => ({
@@ -717,6 +823,10 @@ function buildAbout(ctx: BuildContext): Block {
       caption: asString(take(ctx, "about_caption", "about.caption")),
       heading: asString(take(ctx, "about_headline", "about.headline")) || "Our Story",
       subtitle: asString(take(ctx, "about_subtitle", "about.subtitle")),
+    } : isShowcase ? {
+      // Compact About: owner headline, else business name (handled in the
+      // renderer, which has businessName) — no hardcoded fallback here.
+      heading: asString(take(ctx, "about_headline", "about.headline")),
     } : {
       ...(ctx.template.id === "restaurant-table-flame" ? { heading: "Our Story" } : {}),
     }),
@@ -793,6 +903,20 @@ function buildContact(ctx: BuildContext, heading: string): Block {
     }))
     .filter((row) => Boolean(row.name || row.address || row.hours))
     .slice(0, 12);
+  const whatsapp = (() => {
+    if (ctx.template.id !== "showcase") return undefined;
+    const extras = asRecord(effectiveValue(ctx, "template_extras"));
+    const raw = asString(extras?.whatsappPhone);
+    if (!raw) return undefined;
+    // Strip "+" and any other non-digits, then a leading "00" international
+    // dialing prefix — never guess a country code for an unprefixed local number.
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    return digits.length >= 8 ? digits : undefined;
+  })();
+  const contactSocials = ctx.template.id === "showcase"
+    ? (asRecord(effectiveValue(ctx, "socials")) as ContentSocials | undefined)
+    : undefined;
   return {
     type: "contact",
     heading,
@@ -804,6 +928,8 @@ function buildContact(ctx: BuildContext, heading: string): Block {
     ...(locations.length > 0 ? { locations } : {}),
     directionsUrl: asString(take(ctx, "directions_url", "location.directions")),
     showMap: false,
+    ...(whatsapp ? { whatsapp } : {}),
+    ...(contactSocials ? { socials: contactSocials } : {}),
   } as Block;
 }
 
@@ -832,12 +958,14 @@ function buildCtaBand(ctx: BuildContext): Block {
       ? ctx.restaurantCtaBandHeading
       : isSavannah
         ? "Join us around the table."
-      : ctx.rentalCtaBandHeading;
+        : ctx.template.id === "cleaning-fresh"
+          ? "Ready for a cleaner home?"
+          : ctx.rentalCtaBandHeading;
   const extras = asRecord(effectiveValue(ctx, "template_extras"));
-  const customLabel = isSavannah ? asString(extras?.ctaBandButtonLabel) : undefined;
-  const customLink = isSavannah ? asString(extras?.ctaBandButtonLink) : undefined;
-  const defaultLabel = isSavannah ? ctx.viewMenuLabel : undefined;
-  const defaultLink = isSavannah ? "/menu" : undefined;
+  const customLabel = isSavannah || ctx.template.id === "cleaning-fresh" ? asString(extras?.ctaBandButtonLabel) : undefined;
+  const customLink = isSavannah || ctx.template.id === "cleaning-fresh" ? asString(extras?.ctaBandButtonLink) : undefined;
+  const defaultLabel = isSavannah ? ctx.viewMenuLabel : ctx.template.id === "cleaning-fresh" ? "Book now" : undefined;
+  const defaultLink = isSavannah ? "/menu" : ctx.template.id === "cleaning-fresh" ? "/book" : undefined;
   const ctaLabel = customLabel ?? defaultLabel;
   const ctaHref = customLink ?? defaultLink;
   const headingFinal = (isSavannah ? (extras?.ctaBandHeading as string) : undefined) ?? heading;
@@ -853,7 +981,31 @@ function buildCtaBand(ctx: BuildContext): Block {
   } as Block;
 }
 
-function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindFeatured: boolean): Block {
+function buildShowcaseClosingBanner(ctx: BuildContext): Block {
+  const catalogName = resolveCatalogName(ctx);
+  const catalogPage = ctx.template.pages.find((p) => p.purpose === "catalog");
+  const contactPage = ctx.template.pages.find((p) => p.purpose === "contact");
+  const catalogHref = catalogPage
+    ? (ctx.siteSlug ? getSitePageHref(ctx.siteSlug, catalogPage.slug) : `/${encodeURIComponent(catalogPage.slug)}`)
+    : undefined;
+  const contactHref = contactPage
+    ? (ctx.siteSlug ? getSitePageHref(ctx.siteSlug, contactPage.slug) : `/${encodeURIComponent(contactPage.slug)}`)
+    : undefined;
+  const ordering = ctx.storefrontFeatures.ordering;
+  const browseTemplate = ctx.foodOrderCopy?.heroCtaBrowseTemplate ?? "Browse {catalog}";
+  const contactLabel = ctx.foodOrderCopy?.heroCtaContact ?? "Contact us";
+  const orderingHeading = ctx.foodOrderCopy?.closingHeadingOrdering ?? "Ready to order?";
+  const contactHeading = ctx.foodOrderCopy?.contactHeading ?? "Get in touch";
+  return {
+    type: "cta_banner",
+    variant: "brand",
+    heading: ordering ? orderingHeading : contactHeading,
+    ctaLabel: ordering ? browseTemplate.replace("{catalog}", catalogName ?? "menu") : contactLabel,
+    ctaHref: (ordering ? catalogHref : contactHref) || "",
+  } as Block;
+}
+
+function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindFeatured: boolean): MenuEmbedBlock {
   // Featured menu_item_ids bind only when they are UUID-shaped (anything else
   // is dropped so validation never fails); section scoping + tenant isolation
   // stay in resolveMenuEmbed. Unset/empty keeps "show all" behavior.
@@ -872,6 +1024,7 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
   const menuImageFit = ctx.template.id === "restaurant-savannah" && (extras?.menuImageFit === "contain" || extras?.menuImageFit === "cover")
     ? extras.menuImageFit
     : undefined;
+  const relatedItemsEnabled = ctx.template.id === "showcase" ? extras?.relatedItemsEnabled !== "off" : undefined;
   return {
     type: "menu_embed",
     heading,
@@ -881,13 +1034,145 @@ function buildMenuEmbed(ctx: BuildContext, heading: string, limit: number, bindF
     ...(menuImageFit ? { imageFit: menuImageFit } : {}),
     ...(selectedItemIds ? { selectedItemIds } : {}),
     ...(ctx.currency ? { currency: ctx.currency } : {}),
-  } as Block;
+    ...(relatedItemsEnabled !== undefined ? { relatedItemsEnabled } : {}),
+    // Showcase previews ship a render-only sample menu (spec 10e). Live sites
+    // never reach includeSamples, so owner data is the only source there.
+    ...(ctx.includeSamples && ctx.template.id === "showcase"
+      ? { previewSections: SHOWCASE_PREVIEW_MENU }
+      : {}),
+  };
+}
+
+function buildProductsEmbedForStore(ctx: BuildContext, home: boolean): ProductsEmbedBlock {
+  // Owner-tunable grid density; mirrors the products_embed case in buildSectionBlock.
+  const densityExtras = asRecord(effectiveValue(ctx, "template_extras"));
+  const densityRaw = densityExtras?.storeBrowsePageSize;
+  const density =
+    typeof densityRaw === "number" && Number.isFinite(densityRaw)
+      ? Math.min(24, Math.max(1, Math.floor(densityRaw)))
+      : home ? 6 : 12;
+  const featured = asRecord(effectiveValue(ctx, "featured"));
+  const rawProductIds = Array.isArray(featured?.product_ids) ? featured.product_ids : [];
+  const picks: string[] = [];
+  if (home) {
+    for (const id of rawProductIds) {
+      if (
+        typeof id === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())
+      ) {
+        picks.push(id.trim());
+        if (picks.length >= 12) break;
+      }
+    }
+  }
+  return {
+    type: "products_embed",
+    heading: home
+      ? ctx.storeCopy?.homeProductsHeading ?? "Featured products"
+      : ctx.storeCopy?.shopHeading ?? "Shop all products",
+    limit: 200,
+    layout: "grid",
+    categoryTiles: true,
+    siteLocalProductDetails: true,
+    allowLargeCatalog: true,
+    browsePageSize: density,
+    ...(picks.length > 0 ? { selectedProductIds: picks } : {}),
+    ...(!ctx.catalogAvailability && ctx.includeSamples ? { previewProducts: STORE_PREVIEW_PRODUCTS } : {}),
+  };
+}
+
+function resolveCatalogSourceForCtx(ctx: BuildContext): "menu" | "products" | null {
+  const extras = asRecord(effectiveValue(ctx, "template_extras"));
+  const choice = asString(extras?.catalogSource);
+
+  if (choice === "products") {
+    return "products";
+  } else if (choice === "menu") {
+    return "menu";
+  } else {
+    // auto or unset: products only -> products; menu only -> menu; both -> menu
+    if (ctx.catalogAvailability) {
+      const hasProducts = Boolean(ctx.catalogAvailability.products);
+      const hasMenu = Boolean(ctx.catalogAvailability.menuItems);
+      if (hasProducts && !hasMenu) {
+        return "products";
+      } else if (hasMenu) {
+        return "menu";
+      } else {
+        return null;
+      }
+    } else if (ctx.includeSamples) {
+      return "menu";
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolves the owner-named catalog for Showcase. The owner-editable name is
+ * `nav_labels.menu` (the "Menu bar labels" editor slot). When unset, the name
+ * falls back to the source-based translation default ("Menu" / "Shop").
+ * Changing `nav_labels.menu` to e.g. "Services" updates every catalog label.
+ */
+export function resolveCatalogName(ctx: BuildContext): string | undefined {
+  const navLabels = asRecord(take(ctx, "nav_labels", "nav.labels"));
+  const ownerName = asString(navLabels?.menu);
+  if (ownerName) return ownerName;
+  const extras = asRecord(effectiveValue(ctx, "template_extras"));
+  const choice = asString(extras?.catalogSource);
+  return choice === "products" ? "Shop" : "Menu";
+}
+
+function buildCatalogSectionBlock(
+  ctx: BuildContext,
+  section: TemplateSection
+): Block | null {
+  const source = resolveCatalogSourceForCtx(ctx);
+
+  if (!source) return null;
+
+  if (source === "menu") {
+    if (ctx.catalogAvailability && !ctx.catalogAvailability.menuItems) return null;
+    // Delegate to buildMenuEmbed for full parity (heading, featured picks, imageFit, currency).
+    // limit: 6 for home sections, 200 for catalog/full-page sections.
+    // bindFeatured: true so owner-picked menu_item_ids propagate (same as menu.featured).
+    const isHome = section.page === "home";
+    const limit = isHome ? 6 : 200;
+    const heading = ctx.template.id === "showcase"
+      ? (isHome
+          ? ctx.foodOrderCopy?.popularItemsHeading ?? "Popular items"
+          : ctx.foodOrderCopy?.menuPageHeading ?? "Browse the menu")
+      : (isHome ? "Best sellers" : "Our full menu");
+    const base = buildMenuEmbed(ctx, heading, limit, isHome);
+    // Override variant: "carousel" on the section -> "catalog-carousel" on the block.
+    const isCarousel = section.variant === "carousel";
+    return {
+      ...base,
+      ...(isCarousel ? { variant: "catalog-carousel" } : {}),
+    };
+  }
+
+  if (ctx.catalogAvailability && !ctx.catalogAvailability.products) return null;
+  // Delegate to the shared store products builder for full parity
+  // (heading, categoryTiles, siteLocalProductDetails, allowLargeCatalog, browsePageSize, selectedProductIds).
+  const home = section.page === "home";
+  const base = buildProductsEmbedForStore(ctx, home);
+  // Override limit and variant to match catalog-section semantics:
+  // section.variant "carousel" -> products_embed variant "carousel".
+  const isCarousel = section.variant === "carousel";
+  return {
+    ...base,
+    ...(isCarousel ? { variant: "carousel" } : {}),
+  };
 }
 
 function buildSectionBlock(
   ctx: BuildContext,
   section: TemplateSection
 ): Block | null {
+  if (section.catalog) {
+    return buildCatalogSectionBlock(ctx, section);
+  }
   switch (section.block) {
     case "hero":
       return buildHero(ctx);
@@ -904,13 +1189,21 @@ function buildSectionBlock(
           items: [{ title: ctx.storeCopy?.trustItemHeading ?? "A note from this business", description: text }],
         } as Block;
       }
-      if (section.id === "trust") return buildFeatures(ctx, section, "trust", "trust.items", 4, "Why DriveLine");
+      if (section.id === "trust") {
+        if (ctx.template.id === "showcase") return buildShowcaseTrustStrip(ctx);
+        return buildFeatures(ctx, section, "trust", "trust.items", 4, "Why DriveLine");
+      }
+      if (section.id === "trust-strip") return buildFeatures(ctx, section, "trust", "trust.items", 4);
+      if (section.id === "why-choose-us") return buildFeatures(ctx, section, "benefits", "benefits.items", 4);
       if (section.id === "how-it-works") {
         const heading = ctx.template.id === "food-order"
           ? ctx.foodOrderCopy?.stepsHeading ?? "Order steps"
           : "How it works";
         return buildFeatures(ctx, section, "steps", "steps.items", 3, heading);
       }
+      if (section.id === "areas-cover") return buildFeatures(ctx, section, "areas", "areas.items", 4);
+      if (section.id === "about-values") return buildFeatures(ctx, section, "values", "values.items", 4);
+      if (section.id === "about-team") return buildFeatures(ctx, section, "team", "team.items", 4);
       return buildFeatures(ctx, section, "highlights", "highlights.items", 3);
     }
     case "about":
@@ -922,6 +1215,7 @@ function buildSectionBlock(
     case "contact": {
       const heading = ctx.template.id === "food-order"
         ? ctx.foodOrderCopy?.contactHeading ?? "Contact"
+        : ctx.template.id === "cleaning-fresh" ? "Contact us"
         : ctx.template.id === "restaurant-table-flame" || ctx.template.id === "restaurant-savannah" ? "Hours & Location"
           : section.id === "locations" ? "Pickup locations" : "Visit us";
       return buildContact(ctx, heading);
@@ -998,6 +1292,9 @@ function buildSectionBlock(
           ...(endDate ? { endDate } : {}),
         } as Block;
       }
+      if (section.id === "closing" && ctx.template.id === "showcase") {
+        return buildShowcaseClosingBanner(ctx);
+      }
       return buildCtaBand(ctx);
     }
     case "menu_embed": {
@@ -1032,8 +1329,26 @@ function buildSectionBlock(
       }
       return buildMenuEmbed(ctx, ctx.template.id === "restaurant-savannah" ? "Best sellers" : "Featured dishes", 6, true); // menu.featured — picks only
     }
-    case "promotions_embed":
-      return { type: "promotions_embed", enabled: true, layout: "auto" };
+    case "promotions_embed": {
+      const isCarousel = section.variant === "carousel";
+      // Showcase's compact promo card is dashboard-managed Promotions only — the
+      // hero now owns the owner's default/fallback content (buildHero above).
+      // No active promotions: the renderer hides the whole block, no gap.
+      // Autoplay and image fit are fixed (no owner-facing editor control
+      // anymore) — always autoplay-on (PromoCarousel's own default when no
+      // autoplaySetting is passed), always "contain", regardless of any
+      // older saved template_extras value.
+      return {
+        type: "promotions_embed",
+        enabled: true,
+        layout: "auto",
+        ...(ctx.template.id === "showcase" ? { imageStyle: "contain" as const } : {}),
+        ...(isCarousel ? { variant: "carousel" } : {}),
+        ...(ctx.includeSamples && ctx.template.id === "showcase"
+          ? { previewPromotions: SHOWCASE_PREVIEW_PROMOTIONS }
+          : {}),
+      };
+    }
     case "products_embed": {
       if (ctx.template.id !== "store") return null;
       if (ctx.catalogAvailability && !ctx.catalogAvailability.products) return null;
@@ -1050,13 +1365,19 @@ function buildSectionBlock(
       // only when UUID-shaped; anything else falls back to latest. Tenant
       // scoping stays in resolveProductsEmbed, so foreign ids resolve empty.
       const featured = asRecord(effectiveValue(ctx, "featured"));
-      const picks = section.id === "store.home.products" && Array.isArray(featured?.product_ids)
-        ? (featured.product_ids as unknown[]).filter(
-            (id): id is string =>
-              typeof id === "string" &&
-              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())
-          ).map((id) => id.trim()).slice(0, 12)
-        : [];
+      const rawProductIds = Array.isArray(featured?.product_ids) ? featured.product_ids : [];
+      const picks: string[] = [];
+      if (section.id === "store.home.products") {
+        for (const id of rawProductIds) {
+          if (
+            typeof id === "string" &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())
+          ) {
+            picks.push(id.trim());
+          }
+          if (picks.length >= 12) break;
+        }
+      }
       return {
         type: "products_embed",
         heading: home
@@ -1086,6 +1407,36 @@ function buildSectionBlock(
         id: stableUuid(ctx.template.id + ":reservations:reservation_form"),
         type: "reservation_form",
       };
+    }
+    case "services_embed": {
+      const heading = asString(take(ctx, "services_heading", "services.heading")) || "Our services";
+      const limitRaw = take(ctx, "services_limit", "services.limit");
+      const limit = typeof limitRaw === "number" && Number.isFinite(limitRaw)
+        ? Math.min(12, Math.max(1, Math.floor(limitRaw)))
+        : section.id === "services.page" ? 12 : 6;
+      const layoutRaw = take(ctx, "services_layout", "services.layout");
+      const layout = layoutRaw === "list" ? "list" : "grid";
+      return {
+        type: "services_embed",
+        heading,
+        limit,
+        layout,
+      } as Block;
+    }
+    case "general_booking_form": {
+      return {
+        id: stableUuid(ctx.template.id + ":book:general_booking_form"),
+        type: "general_booking_form",
+      } as Block;
+    }
+    case "booking_bar":
+    case "fleet_cards":
+    case "fleet_grid":
+    case "booking_form": {
+      return {
+        id: stableUuid(ctx.template.id + ":" + section.id),
+        type: section.block,
+      } as Block;
     }
     default:
       return null;
@@ -1167,6 +1518,7 @@ export function isSectionEnabled(
   }
 
   if (section.defaultOff) {
+    if (section.requiresExplicitOptIn) return false;
     return sectionHasLiveSlotContent(doc, section, template);
   }
 
@@ -1252,6 +1604,7 @@ export function resolveTemplateManifest(
     storeCopy: options.storeCopy,
     timeZone: options.timeZone,
     now: options.now,
+    siteSlug: options.siteSlug,
   };
 
   const pages: ResolvedPage[] = [];
@@ -1266,7 +1619,7 @@ export function resolveTemplateManifest(
       if (section.page !== page.purpose) continue;
       if (section.chrome) continue;
       if (!isSectionEnabled(section, doc, template)) continue;
-      if (!section.block) {
+      if (!section.block && !section.catalog) {
         if (section.pendingBlock) {
           skipped.push({
             page: page.purpose,
@@ -1281,6 +1634,35 @@ export function resolveTemplateManifest(
       const block = buildSectionBlock(ctx, section);
       if (block) {
         if (section.spacing) block.spacing = section.spacing;
+        if (section.variant) {
+          switch (block.type) {
+            case "features":
+              if (section.variant === "trust_strip") block.variant = "trust_strip";
+              break;
+            case "about":
+              if (section.variant === "split") block.variant = "split";
+              break;
+            case "contact":
+              if (section.variant === "card") block.variant = "card";
+              break;
+            case "products_embed":
+              if (section.variant === "carousel") block.variant = "carousel";
+              break;
+            case "promotions_embed":
+              if (section.variant === "carousel") block.variant = "carousel";
+              break;
+            case "menu_embed":
+              if (
+                section.variant === "cards" ||
+                section.variant === "rows" ||
+                section.variant === "editorial" ||
+                section.variant === "catalog-carousel"
+              ) {
+                block.variant = section.variant;
+              }
+              break;
+          }
+        }
         if (!ctx.includeSamples && !hasBlockContent(block)) {
           continue;
         }
@@ -1318,10 +1700,16 @@ export function resolveTemplateManifest(
         sourceMap[block.id ?? stableUuid(template.id + ":" + page.slug + ":" + index)] = entries;
       }
     });
+    const showcaseCatalogSource = template.id === "showcase" ? resolveCatalogSourceForCtx(ctx) : null;
+    const pageTitle = (template.id === "showcase" && page.slug === "menu")
+      ? (showcaseCatalogSource === "products"
+          ? (options.storeCopy?.shopHeading ?? "Shop all products")
+          : (options.foodOrderCopy?.menuPageHeading ?? "Browse the menu"))
+      : page.title;
     pages.push({
       id: pageIdFor(template.id, page.slug),
       slug: page.slug,
-      title: page.title,
+      title: pageTitle,
       isHome: page.isHome,
       sortOrder: page.sortOrder,
       purpose: page.purpose,
@@ -1355,6 +1743,7 @@ export function resolveTemplateManifest(
     availablePages: options.availablePageSlugs,
     catalogAdapter,
     ...(template.id === "store" ? { catalogPageSlug: "shop", catalogActionLabelKey: "shopNow" } : {}),
+    ...(template.id === "cleaning-fresh" ? { bookingPageSlug: "book" } : {}),
   });
   // Store-only owner hero-button label: template_extras.storeHeroCta becomes
   // the action label itself, so fixed-fallback precedence (line ~1190) honors
@@ -1375,6 +1764,11 @@ export function resolveTemplateManifest(
     : undefined);
   for (const page of pages) {
     if (!page.isHome) continue;
+    // Showcase's hero fully resolves its own CTA (owner-named catalog label,
+    // ordering-aware default, contact fallback) inside buildHero — this
+    // platform-wide fallback would clobber that with the generic site-wide
+    // primary action instead.
+    if (template.id === "showcase") continue;
     const hero = page.blocks.find((block) => block.type === "hero");
     if (!hero || hero.type !== "hero" || !primaryAction.primary) continue;
     const actionIsFixedFallback = ["viewMenu", "viewProducts", "shopNow", "contact", "rentalContactCta"].includes(primaryAction.primary.labelKey);
@@ -1401,28 +1795,55 @@ export function resolveTemplateManifest(
   };
   const homeSlug = template.pages.find((page) => page.isHome)?.slug ?? template.pages[0]?.slug ?? "home";
   const navLabelMap: Record<string, TemplateSourceMapEntry> = {};
+  const hasCatalogItems = (() => {
+    if (ctx.catalogAvailability) {
+      const extras = asRecord(effectiveValue(ctx, "template_extras"));
+      const choice = asString(extras?.catalogSource);
+      if (choice === "products") return Boolean(ctx.catalogAvailability.products);
+      if (choice === "menu") return Boolean(ctx.catalogAvailability.menuItems);
+      return Boolean(ctx.catalogAvailability.products || ctx.catalogAvailability.menuItems);
+    }
+    return ctx.includeSamples !== false;
+  })();
+
   const navigation: ResolvedNavigationItem[] = template.navigation
     .filter((entry) =>
       (!entry.pageSlug || emittedSlugs.has(entry.pageSlug)) &&
       (!entry.pageSlug || !availablePageSlugs || availablePageSlugs.has(entry.pageSlug)) &&
       (!entry.anchor || emittedAnchors.has(entry.anchor)) &&
-      (!entry.feature || storefrontFeatures[entry.feature])
+      (!entry.feature || (entry.feature === "catalog" ? hasCatalogItems : storefrontFeatures[entry.feature]))
     )
-    .map((entry, index) => ({
-      id: `${template.id}-nav-${index}`,
-      label: asString(navLabels?.[labelKeyFor(entry)]) ??
-        (template.id === "food-order" ? options.foodOrderCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
-        (template.id === "store" ? options.storeCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
-        entry.label,
-      href: entry.pageSlug
-        ? getSitePageHref(siteSlug, entry.pageSlug, entry.anchor)
-        : resolveSiteHref(siteSlug, entry.href ?? ""),
-      page_id: entry.pageSlug ? pageIdFor(template.id, entry.pageSlug) : null,
-      pageSlug: entry.pageSlug,
-      ...(entry.anchor ? { anchor: entry.anchor } : {}),
-      target: "_self" as const,
-      order: entry.order,
-    }));
+    .map((entry, index) => {
+      const showcaseCatalogSource = template.id === "showcase" ? resolveCatalogSourceForCtx(ctx) : null;
+      const isCatalog = entry.pageSlug === "menu" || entry.feature === "catalog";
+      const isOrder = entry.pageSlug === "order" || entry.feature === "ordering";
+      const showcaseLabel = template.id === "showcase"
+        ? (isCatalog
+            ? (showcaseCatalogSource === "products"
+                ? (options.storeCopy?.navigationLabels?.shop ?? "Shop")
+                : (options.foodOrderCopy?.navigationLabels?.menu === "Explore" ? "Menu" : options.foodOrderCopy?.navigationLabels?.menu ?? "Menu"))
+            : isOrder
+            ? (options.foodOrderCopy?.navigationLabels?.order ?? "Order")
+            : undefined)
+        : undefined;
+
+      return {
+        id: `${template.id}-nav-${index}`,
+        label: asString(navLabels?.[labelKeyFor(entry)]) ??
+          showcaseLabel ??
+          (template.id === "food-order" ? options.foodOrderCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
+          (template.id === "store" ? options.storeCopy?.navigationLabels?.[labelKeyFor(entry)] : undefined) ??
+          entry.label,
+        href: entry.pageSlug
+          ? getSitePageHref(siteSlug, entry.pageSlug, entry.anchor)
+          : resolveSiteHref(siteSlug, entry.href ?? ""),
+        page_id: entry.pageSlug ? pageIdFor(template.id, entry.pageSlug) : null,
+        pageSlug: entry.pageSlug,
+        ...(entry.anchor ? { anchor: entry.anchor } : {}),
+        target: "_self" as const,
+        order: entry.order,
+      };
+    });
 
   navigation.forEach((item, index) => {
     const labelKey = labelKeyFor(item);
@@ -1489,7 +1910,7 @@ export function resolveTemplateManifest(
     omittedPages,
     storefrontFeatures,
     primaryAction,
-    todayHours: resolveTodayHours(effectiveValue(ctx, "hours"), options.timeZone),
+    todayHours: resolveTodayHours(effectiveValue(ctx, "hours"), options.timeZone, options.now),
   };
 }
 

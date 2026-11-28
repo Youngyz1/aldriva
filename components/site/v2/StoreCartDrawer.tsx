@@ -135,6 +135,39 @@ export function StoreCartWidget({
     return () => window.removeEventListener("keydown", onKey);
   }, [open ]);
 
+  useEffect(() => {
+    // Check for ?cart=1 deep-link on mount
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get("cart") === "1" && cart.count > 0) {
+        setOpen(true);
+        searchParams.delete("cart");
+        const cleanQuery = searchParams.toString();
+        window.history.replaceState(window.history.state, "", `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${window.location.hash}`);
+      }
+    }
+
+    const onOpenCart = () => {
+      if (cart.count > 0) setOpen(true);
+    };
+    window.addEventListener("aldriva:open-cart-drawer", onOpenCart);
+    return () => {
+      window.removeEventListener("aldriva:open-cart-drawer", onOpenCart);
+    };
+  }, [cart.count]);
+
+  useEffect(() => {
+    try {
+      const summary = { count: cart.count, currency: siteCurrency };
+      localStorage.setItem(`aldriva_cart_summary_${slug}`, JSON.stringify(summary));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("aldriva:cart-summary-updated"));
+      }
+    } catch {
+      // Storage access unavailable
+    }
+  }, [cart.count, slug, siteCurrency]);
+
   return (
     <>
       {showButton ? (
@@ -142,7 +175,7 @@ export function StoreCartWidget({
           type="button"
           onClick={() => setOpen(true)}
           aria-label={`${labels.viewCart} (${cart.count})`}
-          className={`ps-button ps-button-primary fixed bottom-5 right-5 z-40 flex h-12 min-w-12 items-center justify-center gap-2 rounded-full px-4 shadow-lg transition ${
+          className={`ps-button ps-button-primary fixed bottom-[var(--mobile-cart-bar-offset,1.25rem)] right-5 z-40 flex h-12 min-w-12 items-center justify-center gap-2 rounded-full px-4 shadow-lg transition ${
             flash ? "scale-105" : ""
           }`}
         >

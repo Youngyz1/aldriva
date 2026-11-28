@@ -19,6 +19,14 @@ interface WebsitePreviewPanelProps {
   onOpenMenuEditor?: () => void;
   offerings?: string[];
   isOrderingLive?: boolean;
+  /**
+   * Bumped by the caller after a draft save succeeds. Some templates
+   * (Showcase) render their preview body server-side from the saved draft
+   * rather than from postMessage-patched content, so a save alone wouldn't
+   * otherwise ever show up — this forces a real iframe reload, preserving
+   * the visitor's scroll position across it.
+   */
+  reloadKey?: number;
 }
 
 export function WebsitePreviewPanel({
@@ -33,6 +41,7 @@ export function WebsitePreviewPanel({
   onOpenMenuEditor,
   offerings,
   isOrderingLive,
+  reloadKey,
 }: WebsitePreviewPanelProps) {
   const storeT = useTranslations("Storefront");
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -120,6 +129,54 @@ export function WebsitePreviewPanel({
     return () => window.clearTimeout(timer);
   }, [content, ready, selectedPageSlug, sendDraft]);
 
+  const reloadPreservingScroll = useCallback(() => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+    let scrollY = 0;
+    try {
+      scrollY = frame.contentWindow?.scrollY ?? 0;
+    } catch {
+      scrollY = 0;
+    }
+    const restoreScroll = () => {
+      try {
+        frame.contentWindow?.scrollTo(0, scrollY);
+      } catch {
+        // Cross-origin or torn-down frame — nothing to restore into.
+      }
+      frame.removeEventListener("load", restoreScroll);
+    };
+    frame.addEventListener("load", restoreScroll);
+    try {
+      frame.contentWindow?.location.reload();
+    } catch {
+      frame.removeEventListener("load", restoreScroll);
+    }
+  }, []);
+
+  const prevReloadKeyRef = useRef(reloadKey);
+  useEffect(() => {
+    if (reloadKey === undefined || reloadKey === prevReloadKeyRef.current) return;
+    prevReloadKeyRef.current = reloadKey;
+    reloadPreservingScroll();
+  }, [reloadKey, reloadPreservingScroll]);
+
+  // A dish added through the Menu drawer (a separate table from the website
+  // draft, so it never flows through reloadKey above) or any other dashboard
+  // change made in a different tab/window only reaches this iframe once the
+  // builder tab is actually looked at again.
+  useEffect(() => {
+    const onFocusRegained = () => {
+      if (document.visibilityState === "visible") reloadPreservingScroll();
+    };
+    window.addEventListener("focus", onFocusRegained);
+    document.addEventListener("visibilitychange", onFocusRegained);
+    return () => {
+      window.removeEventListener("focus", onFocusRegained);
+      document.removeEventListener("visibilitychange", onFocusRegained);
+    };
+  }, [reloadPreservingScroll]);
+
   const pages = initialState.previewPages;
 
   return (
@@ -128,8 +185,17 @@ export function WebsitePreviewPanel({
         <div className="flex min-w-0 gap-1 overflow-x-auto">
           {pages.map((page) => <button key={page.slug} type="button" aria-pressed={selectedPageSlug === page.slug} onClick={() => onSelectPage(page.slug)} className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold ${selectedPageSlug === page.slug ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"}`}>{page.title}</button>)}
         </div>
-        <div className="flex shrink-0 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800" role="group" aria-label="Preview size">
-          {(["desktop", "mobile"] as const).map((nextMode) => <button key={nextMode} type="button" aria-pressed={mode === nextMode} onClick={() => setMode(nextMode)} className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize ${mode === nextMode ? "bg-white text-zinc-900 shadow-xs dark:bg-zinc-700 dark:text-white" : "text-zinc-500 dark:text-zinc-400"}`}>{nextMode}</button>)}
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={reloadPreservingScroll}
+            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            Refresh preview
+          </button>
+          <div className="flex rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800" role="group" aria-label="Preview size">
+            {(["desktop", "mobile"] as const).map((nextMode) => <button key={nextMode} type="button" aria-pressed={mode === nextMode} onClick={() => setMode(nextMode)} className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize ${mode === nextMode ? "bg-white text-zinc-900 shadow-xs dark:bg-zinc-700 dark:text-white" : "text-zinc-500 dark:text-zinc-400"}`}>{nextMode}</button>)}
+          </div>
         </div>
       </div>
       {isOrderingLive ? (

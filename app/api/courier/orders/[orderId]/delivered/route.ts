@@ -73,7 +73,7 @@ export async function POST(
 
   if (!result.success) {
     const status = result.error === "order_already_updated" ? 409 : result.error === "not_found" ? 404 : 400;
-    return courierJson({ error: result.message ?? "Delivery could not be completed." }, status);
+    return courierJson({ errorCode: result.error, error: result.message ?? "Delivery could not be completed." }, status);
   }
   return courierJson({ ok: true, status: "delivered", paymentStatus: result.paymentStatus ?? order.payment_status });
 }

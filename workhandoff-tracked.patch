@@ -1,0 +1,2884 @@
+diff --git a/app/api/events/[id]/guests/route.ts b/app/api/events/[id]/guests/route.ts
+index f9d6518..6aef87e 100644
+--- a/app/api/events/[id]/guests/route.ts
++++ b/app/api/events/[id]/guests/route.ts
+@@ -13,6 +13,14 @@ import {
+ } from "@/lib/invitations";
+ import { logEventAction } from "@/lib/event-audit";
+ import { isInvitationEvent } from "@/lib/invitation-events";
++import { validateGuestAllowance } from "@/lib/guest-allowance";
++import {
++  GUEST_INVITATION_SELECT_WITH_OPTIONAL,
++  GuestInvitationColumnsUnavailableError,
++  isMissingGuestInvitationColumnsError,
++  LEGACY_GUEST_INVITATION_SELECT,
++  withEmptyGuestInvitationColumns,
++} from "@/lib/guest-invitation-columns";
+ 
+ const admin = createSupabaseAdmin();
+ 
+@@ -58,31 +66,45 @@ export async function GET(
+   const perPage = parseInt(url.searchParams.get("per_page") || "50", 10);
+   const usePagination = url.searchParams.has("page");
+ 
+-  // 1. Fetch invitations (safe fields only — no token)
+-  let query = admin
+-    .from("event_invitations")
+-    .select(
+-      "id, event_id, guest_name, guest_title, organization, email, phone, invitation_status, rsvp_status, rsvp_at, notes, created_at, updated_at",
+-      { count: "exact" }
+-    )
+-    .eq("event_id", eventId)
+-    .order("created_at", { ascending: false });
++  // 1. Fetch invitations (safe fields only — no token). The optional fields
++  // are added by migration 188; fall back to the legacy projection until it is applied.
++  const fetchInvitations = async (selectFields: string) => {
++    let query = (admin as any)
++      .from("event_invitations")
++      .select(selectFields, { count: "exact" })
++      .eq("event_id", eventId)
++      .order("created_at", { ascending: false });
++
++    if (rsvpFilter && ["pending", "accepted", "declined"].includes(rsvpFilter)) {
++      query = query.eq("rsvp_status", rsvpFilter);
++    }
+ 
+-  if (rsvpFilter && ["pending", "accepted", "declined"].includes(rsvpFilter)) {
+-    query = query.eq("rsvp_status", rsvpFilter);
+-  }
++    if (statusFilter && ["draft", "sent", "cancelled", "revoked", "expired"].includes(statusFilter)) {
++      query = query.eq("invitation_status", statusFilter);
++    }
+ 
+-  if (statusFilter && ["draft", "sent", "cancelled", "revoked", "expired"].includes(statusFilter)) {
+-    query = query.eq("invitation_status", statusFilter);
+-  }
++    if (usePagination) {
++      const offset = (Math.max(page, 1) - 1) * perPage;
++      query = query.range(offset, offset + perPage - 1);
++    }
+ 
+-  if (usePagination) {
+-    const offset = (Math.max(page, 1) - 1) * perPage;
+-    query = query.range(offset, offset + perPage - 1);
++    return query;
++  };
++
++  const initialInvitationResult = await fetchInvitations(GUEST_INVITATION_SELECT_WITH_OPTIONAL);
++  let invitations = (initialInvitationResult.data || []) as Array<Record<string, any>>;
++  let count = initialInvitationResult.count;
++  let invErr = initialInvitationResult.error;
++  let guestColumnsAvailable = true;
++
++  if (invErr && isMissingGuestInvitationColumnsError(invErr)) {
++    guestColumnsAvailable = false;
++    const fallback = await fetchInvitations(LEGACY_GUEST_INVITATION_SELECT);
++    invitations = (fallback.data || []).map((row: Record<string, any>) => withEmptyGuestInvitationColumns(row)) as Array<Record<string, any>>;
++    count = fallback.count;
++    invErr = fallback.error;
+   }
+ 
+-  const { data: invitations, count, error: invErr } = await query;
+-
+   if (invErr) {
+     return NextResponse.json({ error: "Failed to load guest list." }, { status: 500 });
+   }
+@@ -128,7 +150,7 @@ export async function GET(
+     .order("row_label")
+     .order("seat_number");
+ 
+-  let guests = (invitations || []).map((inv) => {
++  let guests: Array<Record<string, any>> = (invitations || []).map((inv) => {
+     const ticket = ticketMap.get(inv.id) || null;
+     const seat = seatMap.get(inv.id) || null;
+     return {
+@@ -176,6 +198,7 @@ export async function GET(
+     page: usePagination ? page : 1,
+     per_page: usePagination ? perPage : guests.length,
+     availableSeats: availableSeats || [],
++    guestColumnsAvailable,
+   });
+ }
+ 
+@@ -204,6 +227,11 @@ export async function POST(
+   const notes = (body.notes as string)?.trim() || null;
+   const seatId = (body.seatId as string)?.trim() || null;
+   const sendEmail = Boolean(body.sendEmail);
++  const guestAllowanceResult = validateGuestAllowance(body.guestAllowance ?? null);
++
++  if (!guestAllowanceResult.valid) {
++    return NextResponse.json({ error: guestAllowanceResult.error }, { status: 422 });
++  }
+ 
+   if (!guestName) {
+     return NextResponse.json({ error: "Guest name is required." }, { status: 422 });
+@@ -223,6 +251,7 @@ export async function POST(
+       email,
+       phone,
+       notes,
++      guestAllowance: guestAllowanceResult.value,
+       createdBy: userId,
+     });
+ 
+@@ -282,6 +311,10 @@ export async function POST(
+         phone: credential.invitation.phone,
+         invitation_status: emailSent ? "sent" : credential.invitation.invitation_status,
+         rsvp_status: credential.invitation.rsvp_status,
++        guest_allowance: credential.invitation.guest_allowance,
++        rsvp_guest_count: credential.invitation.rsvp_guest_count,
++        rsvp_guest_names: credential.invitation.rsvp_guest_names,
++        rsvp_message: credential.invitation.rsvp_message,
+         created_at: credential.invitation.created_at,
+         seat_label: assignedSeatLabel,
+       },
+@@ -289,6 +322,12 @@ export async function POST(
+       emailMessage,
+     });
+   } catch (err: unknown) {
++    if (err instanceof GuestInvitationColumnsUnavailableError) {
++      return NextResponse.json(
++        { error: "Guest allowance and RSVP details are unavailable until migration 188 is applied." },
++        { status: 409 }
++      );
++    }
+     console.error("[events/[id]/guests]", err);
+     return NextResponse.json({ error: "Failed to create guest invitation." }, { status: 500 });
+   }
+@@ -384,6 +423,14 @@ export async function PATCH(
+         return NextResponse.json({ error: "Enter a valid email address." }, { status: 422 });
+       }
+ 
++      const hasGuestAllowance = Object.prototype.hasOwnProperty.call(body, "guestAllowance");
++      const guestAllowanceResult = hasGuestAllowance
++        ? validateGuestAllowance(body.guestAllowance)
++        : { valid: true as const, value: undefined };
++      if (!guestAllowanceResult.valid) {
++        return NextResponse.json({ error: guestAllowanceResult.error }, { status: 422 });
++      }
++
+       const result = await updateInvitationGuest({
+         eventId,
+         invitationId,
+@@ -393,6 +440,7 @@ export async function PATCH(
+         email,
+         phone: body.phone as string | null | undefined,
+         notes: body.notes as string | null | undefined,
++        guestAllowance: guestAllowanceResult.value,
+       });
+ 
+       await logEventAction({
+@@ -407,6 +455,12 @@ export async function PATCH(
+ 
+       return NextResponse.json(result);
+     } catch (err: unknown) {
++      if (err instanceof GuestInvitationColumnsUnavailableError) {
++        return NextResponse.json(
++          { error: "Guest allowance and RSVP details are unavailable until migration 188 is applied." },
++          { status: 409 }
++        );
++      }
+       console.error("[events/[id]/guests]", err);
+       return NextResponse.json({ error: "Failed to update guest" }, { status: 400 });
+     }
+diff --git a/app/api/invitation/[token]/rsvp/route.ts b/app/api/invitation/[token]/rsvp/route.ts
+index 3b465c6..1b488bd 100644
+--- a/app/api/invitation/[token]/rsvp/route.ts
++++ b/app/api/invitation/[token]/rsvp/route.ts
+@@ -1,6 +1,7 @@
+ import { NextRequest, NextResponse } from "next/server";
+ import { rsvpInvitation } from "@/lib/invitations";
+ import { isRateLimited, rateLimitedResponse } from "@/lib/memories/guest-limits";
++import { InvitationNotFoundError, normalizeRsvpDetails, RsvpValidationError } from "@/lib/invitation-rsvp";
+ 
+ export async function POST(
+   req: NextRequest,
+@@ -34,13 +35,27 @@ export async function POST(
+     );
+   }
+ 
++  let details;
+   try {
+-    const result = await rsvpInvitation({ token, response });
++    details = normalizeRsvpDetails(response, body);
++  } catch (err: unknown) {
++    if (err instanceof RsvpValidationError) {
++      return NextResponse.json({ error: "Invalid RSVP details." }, { status: 422 });
++    }
++    throw err;
++  }
++
++  try {
++    const result = await rsvpInvitation({ token, response, ...details });
+     return NextResponse.json(result);
+   } catch (err: unknown) {
++    if (err instanceof RsvpValidationError) {
++      return NextResponse.json({ error: "Invalid RSVP details." }, { status: 422 });
++    }
++    if (err instanceof InvitationNotFoundError) {
++      return NextResponse.json({ error: "Invitation not found." }, { status: 404 });
++    }
+     console.error("[invitation/rsvp]", err);
+-    const raw = err instanceof Error ? err.message : "";
+-    const status = raw.includes("not found") ? 404 : 409;
+-    return NextResponse.json({ error: status === 404 ? "Invitation not found." : "Could not update RSVP." }, { status });
++    return NextResponse.json({ error: "Could not update RSVP." }, { status: 409 });
+   }
+ }
+diff --git a/app/dashboard/events/[id]/guests/GuestsClient.tsx b/app/dashboard/events/[id]/guests/GuestsClient.tsx
+index 561799f..02fd00d 100644
+--- a/app/dashboard/events/[id]/guests/GuestsClient.tsx
++++ b/app/dashboard/events/[id]/guests/GuestsClient.tsx
+@@ -21,6 +21,7 @@ import {
+   Upload,
+   FileSpreadsheet,
+   Download,
++  Eye,
+ } from "lucide-react";
+ import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
+ import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+@@ -38,6 +39,10 @@ export type GuestItem = {
+   invitation_status: "draft" | "sent" | "cancelled" | "revoked" | "expired";
+   rsvp_status: "pending" | "accepted" | "declined";
+   rsvp_at: string | null;
++  guest_allowance: number | null;
++  rsvp_guest_count: number | null;
++  rsvp_guest_names: string | null;
++  rsvp_message: string | null;
+   notes: string | null;
+   created_at: string;
+   updated_at: string;
+@@ -77,6 +82,7 @@ type Props = {
+   eventTitle: string;
+   initialGuests: GuestItem[];
+   initialAvailableSeats: AvailableSeat[];
++  guestColumnsAvailable: boolean;
+ };
+ 
+ type Toast = { type: "success" | "error"; message: string } | null;
+@@ -102,9 +108,11 @@ export default function GuestsClient({
+   eventTitle,
+   initialGuests,
+   initialAvailableSeats,
++  guestColumnsAvailable: initialGuestColumnsAvailable,
+ }: Props) {
+   const [guests, setGuests] = useState<GuestItem[]>(initialGuests);
+   const [availableSeats, setAvailableSeats] = useState<AvailableSeat[]>(initialAvailableSeats);
++  const [guestColumnsAvailable, setGuestColumnsAvailable] = useState(initialGuestColumnsAvailable);
+   const [loading, setLoading] = useState(false);
+   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+   const [toast, setToast] = useState<Toast>(null);
+@@ -115,6 +123,7 @@ export default function GuestsClient({
+   const [addModalOpen, setAddModalOpen] = useState(false);
+   const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
+   const [editingGuest, setEditingGuest] = useState<GuestItem | null>(null);
++  const [viewingRsvpGuest, setViewingRsvpGuest] = useState<GuestItem | null>(null);
+   const [assigningSeatGuest, setAssigningSeatGuest] = useState<GuestItem | null>(null);
+   const [cancellingGuest, setCancellingGuest] = useState<GuestItem | null>(null);
+ 
+@@ -135,6 +144,7 @@ export default function GuestsClient({
+       const data = await res.json();
+       setGuests(data.guests || []);
+       setAvailableSeats(data.availableSeats || []);
++      setGuestColumnsAvailable(Boolean(data.guestColumnsAvailable));
+     } catch {
+       showToast("error", "Failed to refresh guest list.");
+     } finally {
+@@ -297,6 +307,12 @@ export default function GuestsClient({
+         }
+       />
+ 
++      {!guestColumnsAvailable && (
++        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
++          Guest allowances and RSVP guest details will be available after migration 188 is applied. You can continue managing guests now.
++        </div>
++      )}
++
+       {/* Toast Notification */}
+       {toast && (
+         <div
+@@ -443,6 +459,11 @@ export default function GuestsClient({
+                                 {[guest.guest_title, guest.organization].filter(Boolean).join(" · ")}
+                               </p>
+                             )}
++                            {guest.guest_allowance != null && (
++                              <span className="mt-1 inline-flex rounded-lg border border-violet-100 bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">
++                                · {guest.guest_allowance} guests
++                              </span>
++                            )}
+                           </div>
+                         </div>
+                       </td>
+@@ -539,6 +560,15 @@ export default function GuestsClient({
+                       {/* Actions */}
+                       <td className="px-4 py-3.5 text-right">
+                         <div className="flex items-center justify-end gap-1.5">
++                          <button
++                            onClick={() => setViewingRsvpGuest(guest)}
++                            title="View RSVP details"
++                            aria-label={`View RSVP details for ${guest.guest_name}`}
++                            className="rounded-xl border border-zinc-200 bg-white p-1.5 text-zinc-500 shadow-sm hover:bg-zinc-50 hover:text-zinc-900"
++                          >
++                            <Eye size={13} />
++                          </button>
++
+                           {/* Send / Resend Email Button */}
+                           {guest.email && !isCancelled && (
+                             <button
+@@ -640,6 +670,14 @@ export default function GuestsClient({
+         />
+       )}
+ 
++      {/* ── Read-only RSVP Details Modal ── */}
++      {viewingRsvpGuest && (
++        <GuestRsvpDetailsModal
++          guest={viewingRsvpGuest}
++          onClose={() => setViewingRsvpGuest(null)}
++        />
++      )}
++
+       {/* ── Assign Seat Modal ── */}
+       {assigningSeatGuest && (
+         <AssignSeatModal
+@@ -717,6 +755,7 @@ function AddGuestModal({
+   const [email, setEmail] = useState("");
+   const [phone, setPhone] = useState("");
+   const [notes, setNotes] = useState("");
++  const [guestAllowance, setGuestAllowance] = useState("");
+   const [seatId, setSeatId] = useState("");
+   const [sendEmail, setSendEmail] = useState(true);
+   const [loading, setLoading] = useState(false);
+@@ -748,6 +787,7 @@ function AddGuestModal({
+           email: email.trim().toLowerCase() || null,
+           phone: phone.trim() || null,
+           notes: notes.trim() || null,
++          guestAllowance: guestAllowance === "" ? null : Number(guestAllowance),
+           seatId: seatId || null,
+           sendEmail: Boolean(sendEmail && email.trim()),
+         }),
+@@ -873,15 +913,32 @@ function AddGuestModal({
+             </div>
+           )}
+ 
+-          <div>
+-            <label className="mb-1 block text-xs font-black text-zinc-700">Internal Notes</label>
+-            <input
+-              type="text"
+-              placeholder="e.g. VIP speaker dinner access"
+-              value={notes}
+-              onChange={(e) => setNotes(e.target.value)}
+-              className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
+-            />
++          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
++            <div>
++              <label className="mb-1 block text-xs font-black text-zinc-700">Internal Notes</label>
++              <input
++                type="text"
++                placeholder="e.g. VIP speaker dinner access"
++                value={notes}
++                onChange={(e) => setNotes(e.target.value)}
++                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
++              />
++            </div>
++            <div>
++              <label className="mb-1 block text-xs font-black text-zinc-700">Guests allowed (party size)</label>
++              <input
++                type="number"
++                min={1}
++                max={20}
++                step={1}
++                value={guestAllowance}
++                onChange={(e) => setGuestAllowance(e.target.value)}
++                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
++              />
++              <p className="mt-1 text-[11px] text-zinc-500">
++                Shown as &apos;Reserved for name, N guests&apos; on personalized invitations.
++              </p>
++            </div>
+           </div>
+ 
+           {email.trim() && (
+@@ -940,6 +997,9 @@ function EditGuestModal({
+   const [email, setEmail] = useState(guest.email || "");
+   const [phone, setPhone] = useState(guest.phone || "");
+   const [notes, setNotes] = useState(guest.notes || "");
++  const [guestAllowance, setGuestAllowance] = useState(
++    guest.guest_allowance == null ? "" : String(guest.guest_allowance)
++  );
+   const [loading, setLoading] = useState(false);
+   const [error, setError] = useState("");
+ 
+@@ -971,6 +1031,7 @@ function EditGuestModal({
+           email: email.trim().toLowerCase() || null,
+           phone: phone.trim() || null,
+           notes: notes.trim() || null,
++          guestAllowance: guestAllowance === "" ? null : Number(guestAllowance),
+         }),
+       });
+ 
+@@ -1064,14 +1125,31 @@ function EditGuestModal({
+             />
+           </div>
+ 
+-          <div>
+-            <label className="mb-1 block text-xs font-black text-zinc-700">Internal Notes</label>
+-            <input
+-              type="text"
+-              value={notes}
+-              onChange={(e) => setNotes(e.target.value)}
+-              className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
+-            />
++          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
++            <div>
++              <label className="mb-1 block text-xs font-black text-zinc-700">Internal Notes</label>
++              <input
++                type="text"
++                value={notes}
++                onChange={(e) => setNotes(e.target.value)}
++                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
++              />
++            </div>
++            <div>
++              <label className="mb-1 block text-xs font-black text-zinc-700">Guests allowed (party size)</label>
++              <input
++                type="number"
++                min={1}
++                max={20}
++                step={1}
++                value={guestAllowance}
++                onChange={(e) => setGuestAllowance(e.target.value)}
++                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-violet-400"
++              />
++              <p className="mt-1 text-[11px] text-zinc-500">
++                Shown as &apos;Reserved for name, N guests&apos; on personalized invitations.
++              </p>
++            </div>
+           </div>
+ 
+           <div className="flex gap-2.5 pt-2 border-t border-zinc-100">
+@@ -1096,6 +1174,87 @@ function EditGuestModal({
+   );
+ }
+ 
++function GuestRsvpDetailsModal({
++  guest,
++  onClose,
++}: {
++  guest: GuestItem;
++  onClose: () => void;
++}) {
++  return (
++    <div
++      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
++      onClick={(e) => e.target === e.currentTarget && onClose()}
++    >
++      <section
++        role="dialog"
++        aria-modal="true"
++        aria-labelledby="guest-rsvp-details-title"
++        className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl"
++      >
++        <div className="flex items-start justify-between border-b border-zinc-100 pb-3.5">
++          <div>
++            <p className="text-xs font-semibold text-zinc-500">Guest RSVP</p>
++            <h3 id="guest-rsvp-details-title" className="mt-0.5 text-base font-black text-zinc-900">
++              {guest.guest_name}
++            </h3>
++          </div>
++          <button
++            type="button"
++            onClick={onClose}
++            aria-label="Close RSVP details"
++            className="rounded-lg p-1 text-zinc-400 hover:text-zinc-700"
++          >
++            <X size={16} />
++          </button>
++        </div>
++
++        <dl className="mt-4 space-y-4 text-sm">
++          <div>
++            <dt className="text-xs font-bold text-zinc-500">Response</dt>
++            <dd className="mt-1 font-semibold capitalize text-zinc-900">{guest.rsvp_status}</dd>
++          </div>
++          <div>
++            <dt className="text-xs font-bold text-zinc-500">RSVP guest count</dt>
++            <dd className="mt-1 font-semibold text-zinc-900">
++              {guest.rsvp_guest_count == null ? "Not provided" : guest.rsvp_guest_count}
++            </dd>
++          </div>
++          <div>
++            <dt className="text-xs font-bold text-zinc-500">Names of guests attending</dt>
++            <dd className="mt-1 whitespace-pre-wrap break-words font-semibold text-zinc-900">
++              {guest.rsvp_guest_names?.trim() || "Not provided"}
++            </dd>
++          </div>
++          <div>
++            <dt className="text-xs font-bold text-zinc-500">Message</dt>
++            {guest.rsvp_message?.trim() ? (
++              <details className="mt-1 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
++                <summary className="cursor-pointer text-xs font-bold text-violet-700">
++                  Read guest message
++                </summary>
++                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-zinc-800">
++                  {guest.rsvp_message}
++                </p>
++              </details>
++            ) : (
++              <dd className="mt-1 font-semibold text-zinc-500">No message</dd>
++            )}
++          </div>
++        </dl>
++
++        <button
++          type="button"
++          onClick={onClose}
++          className="mt-5 w-full rounded-xl border border-zinc-200 py-2.5 text-xs font-black text-zinc-600 hover:bg-zinc-50"
++        >
++          Close
++        </button>
++      </section>
++    </div>
++  );
++}
++
+ // ─── Assign Seat Modal ────────────────────────────────────────────────────────
+ 
+ function AssignSeatModal({
+diff --git a/app/dashboard/events/[id]/guests/page.tsx b/app/dashboard/events/[id]/guests/page.tsx
+index 1694646..4b6a34b 100644
+--- a/app/dashboard/events/[id]/guests/page.tsx
++++ b/app/dashboard/events/[id]/guests/page.tsx
+@@ -3,6 +3,12 @@ import { getDashboardContext } from "@/lib/dashboard-context";
+ import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+ import { createSupabaseAdmin } from "@/lib/supabase-admin";
+ import { assertInvitationKindEvent } from "@/lib/actions/invitation-page";
++import {
++  GUEST_INVITATION_SELECT_WITH_OPTIONAL,
++  isMissingGuestInvitationColumnsError,
++  LEGACY_GUEST_INVITATION_SELECT,
++  withEmptyGuestInvitationColumns,
++} from "@/lib/guest-invitation-columns";
+ import GuestsClient from "./GuestsClient";
+ 
+ export default async function EventGuestsPage({
+@@ -46,13 +52,26 @@ export default async function EventGuestsPage({
+     notFound();
+   }
+ 
+-  // 2. Fetch invitations (safe fields only — no token)
+-  const { data: invitations } = await admin
++  // 2. Fetch invitations (safe fields only — no token). Migration 188 adds
++  // optional allowance/RSVP detail columns; tolerate the pre-migration schema.
++  const invitationResult = await (admin as any)
+     .from("event_invitations")
+-    .select("id, event_id, guest_name, guest_title, organization, email, phone, invitation_status, rsvp_status, rsvp_at, notes, created_at, updated_at")
++    .select(GUEST_INVITATION_SELECT_WITH_OPTIONAL)
+     .eq("event_id", eventId)
+     .order("created_at", { ascending: false });
+ 
++  let invitations = (invitationResult.data || []) as Array<Record<string, any>>;
++  let guestColumnsAvailable = true;
++  if (invitationResult.error && isMissingGuestInvitationColumnsError(invitationResult.error)) {
++    const fallback = await (admin as any)
++      .from("event_invitations")
++      .select(LEGACY_GUEST_INVITATION_SELECT)
++      .eq("event_id", eventId)
++      .order("created_at", { ascending: false });
++    invitations = (fallback.data || []).map((row: Record<string, any>) => withEmptyGuestInvitationColumns(row)) as Array<Record<string, any>>;
++    guestColumnsAvailable = false;
++  }
++
+   const invitationIds = (invitations || []).map((i) => i.id);
+ 
+   // 3. Fetch linked ticket instances
+@@ -94,7 +113,7 @@ export default async function EventGuestsPage({
+     .order("row_label")
+     .order("seat_number");
+ 
+-  const initialGuests = (invitations || []).map((inv) => {
++  const initialGuests: any[] = (invitations || []).map((inv) => {
+     const ticket = ticketMap.get(inv.id) || null;
+     const seat = seatMap.get(inv.id) || null;
+     return {
+@@ -129,6 +148,7 @@ export default async function EventGuestsPage({
+       eventTitle={event.title || "Event"}
+       initialGuests={initialGuests}
+       initialAvailableSeats={availableSeats || []}
++      guestColumnsAvailable={guestColumnsAvailable}
+     />
+   );
+ }
+diff --git a/app/dashboard/events/[id]/invitation-page/builder/InvitationPageBuilder.tsx b/app/dashboard/events/[id]/invitation-page/builder/InvitationPageBuilder.tsx
+index 4101038..742b76c 100644
+--- a/app/dashboard/events/[id]/invitation-page/builder/InvitationPageBuilder.tsx
++++ b/app/dashboard/events/[id]/invitation-page/builder/InvitationPageBuilder.tsx
+@@ -45,6 +45,8 @@ import { HeroSection } from "./sections/HeroSection";
+ import { StorySection } from "./sections/StorySection";
+ import { DetailsSection } from "./sections/DetailsSection";
+ import { GallerySection } from "./sections/GallerySection";
++import { EvergreenPhotosSection } from "./sections/EvergreenPhotosSection";
++import { EvergreenDetailsSection } from "./sections/EvergreenDetailsSection";
+ import { MusicSection } from "./sections/MusicSection";
+ import { ExtrasSection } from "./sections/ExtrasSection";
+ import { DesignSection } from "./sections/DesignSection";
+@@ -106,6 +108,7 @@ export function draftFromData(data: InvitationPageDraftData): BuilderDraft {
+           badge: s.badge ?? null,
+           day: s.day ?? s.dayLabel ?? null,
+           dayLabel: s.dayLabel ?? s.day ?? null,
++          icon: s.icon ?? null,
+         }))
+       : null,
+     gallery: d.gallery ?? null,
+@@ -124,6 +127,8 @@ const SECTION_IDS = [
+   "hero",
+   "story",
+   "details",
++  "evergreen",
++  "photos",
+   "gallery",
+   "music",
+   "extras",
+@@ -140,6 +145,8 @@ const SECTION_TITLES: Record<SectionId, string> = {
+   hero: "Hero",
+   story: "Story",
+   details: "Details & Schedule",
++  evergreen: "Evergreen details",
++  photos: "Photos",
+   gallery: "Gallery",
+   music: "Music",
+   extras: "Special fields",
+@@ -168,6 +175,7 @@ const TYPE_FIELD_MESSAGE_KEYS = {
+   "Age milestone": "invitationTypeFieldAgeMilestone",
+   "Party theme": "invitationTypeFieldPartyTheme",
+   "Gift note": "invitationTypeFieldGiftNote",
++  "Evergreen details and photos": "invitationTypeFieldEvergreenDetails",
+ } as const;
+ 
+ interface SectionBodyProps {
+@@ -202,6 +210,10 @@ function SectionBody({
+       return <StorySection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
+     case "details":
+       return <DetailsSection draft={draft} event={event} updateDraft={updateDraft} />;
++    case "evergreen":
++      return <EvergreenDetailsSection draft={draft} updateDraft={updateDraft} />;
++    case "photos":
++      return <EvergreenPhotosSection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
+     case "gallery":
+       return <GallerySection eventId={eventId} draft={draft} updateDraft={updateDraft} />;
+     case "music":
+@@ -260,6 +272,17 @@ function summaryFor(
+       return draft.venue_name || draft.address || "No venue override";
+     case "gallery":
+       return `${draft.gallery?.length ?? 0} / 12 photos`;
++    case "evergreen":
++      return "Template-specific details";
++    case "photos": {
++      const photos = draft.blocks_layout?.template_data;
++      const count = [
++        photos?.envelope_photo_url, photos?.cover_photo_url, photos?.polaroid_photo_one_url,
++        photos?.polaroid_photo_two_url, photos?.story_photo_one_url, photos?.story_photo_two_url,
++        photos?.closing_photo_url, photos?.rsvp_photo_url,
++      ].filter(Boolean).length;
++      return `${count} / 8 photos`;
++    }
+     case "music":
+       return musicSummary;
+     case "extras":
+@@ -481,19 +504,27 @@ export function InvitationPageBuilder({
+     setInvitationType(pendingTypeChange.type);
+     // Confirmation is the type save point; until now only the iframe used
+     // the candidate page. Values remain on the draft while visibility changes.
+-    updateDraft({ template_id: pendingTypeChange.pageId, blocks_layout: null });
++    const evergreenData = draft.blocks_layout?.template_data;
++    const blocksLayout = evergreenData
++      ? { ...legacyInvitationTemplateToLayout(pendingTypeChange.pageId), template_data: evergreenData }
++      : null;
++    updateDraft({ template_id: pendingTypeChange.pageId, blocks_layout: blocksLayout });
+     setCandidatePreviewTemplateId(null);
+     setPendingTypeChange(null);
+     setOpenSection(null);
+     requestAnimationFrame(() => document.getElementById("inv-section-header-type")?.focus());
+-  }, [pendingTypeChange, updateDraft]);
++  }, [draft.blocks_layout, pendingTypeChange, updateDraft]);
+ 
+   const handleUnifiedTemplateApplied = useCallback((pageId: string) => {
+     setInvitationType(invitationTypeForTemplate(pageId));
+-    if (pageId !== "romantic-envelope") {
++    if (pageId !== "romantic-envelope" && pageId !== "evergreen-envelope") {
+       if (draft.template_id === pageId) return;
+       skipTemplateAutosaveRef.current = pageId;
+-      setDraft((current) => ({ ...current, template_id: pageId, blocks_layout: null }));
++      const evergreenData = draft.blocks_layout?.template_data;
++      const blocksLayout = evergreenData
++        ? { ...legacyInvitationTemplateToLayout(pageId), template_data: evergreenData }
++        : null;
++      setDraft((current) => ({ ...current, template_id: pageId, blocks_layout: blocksLayout }));
+       return;
+     }
+ 
+@@ -707,12 +738,12 @@ export function InvitationPageBuilder({
+             mobileView === "preview" && "hidden lg:block"
+           )}
+         >
+-          {SECTION_IDS.map((id, i) => (
++          {SECTION_IDS.filter((id) => (id !== "photos" && id !== "evergreen") || draft.template_id === "evergreen-envelope").map((id, i) => (
+             <InvitationSection
+               key={id}
+               id={id}
+               index={i}
+-              title={SECTION_TITLES[id]}
++              title={id === "photos" ? t("evergreenPhotosGroup") : id === "evergreen" ? t("evergreenDetailsGroup") : SECTION_TITLES[id]}
+               summary={summaryFor(draft, id, typeSummary, templateSummary, musicSummary)}
+               open={openSection === id}
+               onToggle={toggleSection}
+diff --git a/app/dashboard/events/[id]/invitation-page/builder/sections/DesignSection.tsx b/app/dashboard/events/[id]/invitation-page/builder/sections/DesignSection.tsx
+index 696f5ad..2862d43 100644
+--- a/app/dashboard/events/[id]/invitation-page/builder/sections/DesignSection.tsx
++++ b/app/dashboard/events/[id]/invitation-page/builder/sections/DesignSection.tsx
+@@ -27,18 +27,24 @@ const EFFECT_LABELS: Record<InvitationEffectType, { label: string; description:
+ export function DesignSection({ draft, updateDraft }: Props) {
+   const definition = getInvitationTemplateDefinition(draft.template_id) ?? getDefaultInvitationTemplateDefinition();
+   const isBotanicalReverie = definition.id === "botanical-reverie";
++  const isEvergreenEnvelope = definition.id === "evergreen-envelope";
+   const customizations = definition.supportedCustomizations;
+   const layout = legacyInvitationTemplateToLayout(draft.template_id, draft.blocks_layout);
+   const theme = layout.global_theme;
+   const selectedPalette = theme.palette_id ?? "";
+   const selectedFontPack = theme.font_pack_id ?? "";
+   const textScale = theme.text_scale ?? 1.0;
+-  const paletteOptions = isBotanicalReverie
++  const paletteOptions = isEvergreenEnvelope
++    ? PALETTE_OPTIONS.filter(([id]) => ["palette-evergreen", "palette-botanical", "palette-emerald"].includes(id))
++    : isBotanicalReverie
+     ? PALETTE_OPTIONS.filter(([id]) => ["palette-botanical", "palette-rose", "palette-emerald"].includes(id))
+-    : PALETTE_OPTIONS;
+-  const fontOptions = isBotanicalReverie
++      : PALETTE_OPTIONS.filter(([id]) => id !== "palette-evergreen");
++  const fontOptions = isEvergreenEnvelope
++    ? FONT_OPTIONS.filter(([id]) => ["font-script", "font-serif-editorial", "font-serif-classic"].includes(id))
++    : FONT_OPTIONS.filter(([id]) => id !== "font-script");
++  const legacyFontOptions = isBotanicalReverie
+     ? FONT_OPTIONS.filter(([id]) => ["font-serif-editorial", "font-serif-classic", "font-sans-clean"].includes(id))
+-    : FONT_OPTIONS;
++    : FONT_OPTIONS.filter(([id]) => id !== "font-script");
+ 
+   function updateTheme(patch: Partial<Pick<PageGlobalTheme, "palette_id" | "font_pack_id" | "text_scale">>) {
+     const currentLayout = legacyInvitationTemplateToLayout(draft.template_id, draft.blocks_layout);
+@@ -114,7 +120,7 @@ export function DesignSection({ draft, updateDraft }: Props) {
+           <p className="mt-1 text-xs text-zinc-500">Preview heading and paragraph styles.</p>
+         </div>
+         <div className="space-y-2">
+-          {fontOptions.map(([id, fontPack]) => {
++          {(isBotanicalReverie ? legacyFontOptions : fontOptions).map(([id, fontPack]) => {
+             const selected = selectedFontPack === id;
+             return (
+               <button
+diff --git a/app/dashboard/events/[id]/invitation-page/builder/sections/DetailsSection.tsx b/app/dashboard/events/[id]/invitation-page/builder/sections/DetailsSection.tsx
+index da56fd9..14b191a 100644
+--- a/app/dashboard/events/[id]/invitation-page/builder/sections/DetailsSection.tsx
++++ b/app/dashboard/events/[id]/invitation-page/builder/sections/DetailsSection.tsx
+@@ -7,6 +7,7 @@
+  */
+ 
+ import { Plus, Trash2 } from "lucide-react";
++import { useTranslations } from "next-intl";
+ import type { BuilderDraft } from "../InvitationPageBuilder";
+ import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
+ import type { InvitationScheduleItem, InvitationVenueItem } from "@/types/invitation-template";
+@@ -19,6 +20,7 @@ interface Props {
+ }
+ 
+ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
++  const t = useTranslations("Events");
+   const schedule = draft.schedule || [];
+   const venues = draft.venues || [];
+ 
+@@ -178,6 +180,34 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
+               onChange={(e) => handleUpdateVenueItem(i, { address: e.target.value })}
+               className="flex-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
+             />
++            {draft.template_id === "evergreen-envelope" ? (
++              <>
++                <label className="sr-only" htmlFor={`evergreen-venue-time-${i}`}>{t("evergreenVenueTime")}</label>
++                <input
++                  id={`evergreen-venue-time-${i}`}
++                  type="text"
++                  maxLength={40}
++                  disabled={disabled}
++                  placeholder={t("evergreenVenueTime")}
++                  value={v.time ?? ""}
++                  onChange={(e) => handleUpdateVenueItem(i, { time: e.target.value || null })}
++                  className="w-full sm:w-28 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
++                />
++                <label className="sr-only" htmlFor={`evergreen-venue-map-${i}`}>{t("evergreenVenueMapUrl")}</label>
++                <input
++                  id={`evergreen-venue-map-${i}`}
++                  type="url"
++                  maxLength={500}
++                  disabled={disabled}
++                  placeholder={t("evergreenVenueMapUrl")}
++                  title={t("evergreenMapUrlError")}
++                  pattern="https://.*"
++                  value={v.mapUrl ?? ""}
++                  onChange={(e) => handleUpdateVenueItem(i, { mapUrl: e.target.value || null })}
++                  className="w-full sm:w-44 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
++                />
++              </>
++            ) : null}
+             <button
+               type="button"
+               disabled={disabled}
+@@ -258,6 +288,24 @@ export function DetailsSection({ draft, event, updateDraft, disabled }: Props) {
+                 <Trash2 size={14} />
+               </button>
+             </div>
++            {draft.template_id === "evergreen-envelope" ? (
++              <label className="flex items-center gap-2 text-[11px] font-semibold text-zinc-600">
++                <span>{t("evergreenScheduleIconLabel")}</span>
++                <select
++                  value={item.icon ?? ""}
++                  disabled={disabled}
++                  onChange={(event) => handleUpdateScheduleItem(i, { icon: (event.target.value || null) as InvitationScheduleItem["icon"] })}
++                  className="min-w-0 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-900 focus:border-orange-500 focus:outline-none"
++                >
++                  <option value="">{t("evergreenScheduleIconNone")}</option>
++                  <option value="dining">{t("evergreenScheduleIconDining")}</option>
++                  <option value="champagne">{t("evergreenScheduleIconChampagne")}</option>
++                  <option value="cake">{t("evergreenScheduleIconCake")}</option>
++                  <option value="dancing">{t("evergreenScheduleIconDancing")}</option>
++                  <option value="gift">{t("evergreenScheduleIconGift")}</option>
++                </select>
++              </label>
++            ) : null}
+             <input
+               type="text"
+               maxLength={200}
+diff --git a/app/globals.css b/app/globals.css
+index 4305d8e..38214e7 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -3,6 +3,24 @@
+ 
+ @custom-variant dark (&:where(.dark, .dark *));
+ 
++/* Great Vibes — SIL OFL 1.1 script accent face (assets/fonts/GreatVibes-OFL.txt).
++   Scoped to the Evergreen Envelope invitation template's script accents via the
++   `font-script` utility below. Self-hosted so no Google Fonts network request
++   is needed at render time. */
++@font-face {
++  font-family: "Great Vibes";
++  src: url("/fonts/GreatVibes-Regular.ttf") format("truetype");
++  font-weight: 400;
++  font-style: normal;
++  font-display: swap;
++}
++
++/* Script accent utility for invitation templates. Kept as a real utility so
++   it is usable from data-driven template classNames. */
++@utility font-script {
++  font-family: "Great Vibes", "Segoe Script", "Brush Script MT", cursive;
++}
++
+ /* Hide scrollbars on horizontal scroll rows (mobile category/pill sliders).
+    Referenced across the app (e.g. NearbyEvents, LocationSearch, events
+    category row) but was previously undefined, so scrollbars still showed. */
+diff --git a/app/invitation/[token]/page.tsx b/app/invitation/[token]/page.tsx
+index 1627c34..c380c19 100644
+--- a/app/invitation/[token]/page.tsx
++++ b/app/invitation/[token]/page.tsx
+@@ -3,7 +3,7 @@ import { Suspense } from "react";
+ import { connection } from "next/server";
+ import Link from "next/link";
+ import { MailX } from "lucide-react";
+-import { getInvitationByToken } from "@/lib/invitations";
++import { getInvitationByToken, getInvitationGuestAllowanceByToken } from "@/lib/invitations";
+ import { BRAND } from "@/config/branding";
+ import InvitationClient from "./InvitationClient";
+ import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
+@@ -125,6 +125,10 @@ async function InvitationLoader({ token }: { token: string }) {
+   const publishedPage = event?.id ? await getPublishedInvitationPage(event.id) : null;
+ 
+   if (publishedPage) {
++    const templateId = publishedPage.published_snapshot.template_id;
++    const guestAllowance = templateId === "evergreen-envelope"
++      ? await getInvitationGuestAllowanceByToken(token)
++      : null;
+     // Assemble live data layers into the InvitationPageData contract.
+     const guestRecord = {
+       guest_name: invitation.guest_name,
+@@ -132,6 +136,7 @@ async function InvitationLoader({ token }: { token: string }) {
+       organization: invitation.organization,
+       rsvp_status: invitation.rsvp_status as "pending" | "accepted" | "declined",
+       rsvp_at: invitation.rsvp_at,
++      ...(templateId === "evergreen-envelope" ? { guest_allowance: guestAllowance } : {}),
+       token: invitation.token,
+       is_vip: seat?.is_vip ?? false,
+     };
+@@ -180,14 +185,20 @@ async function InvitationLoader({ token }: { token: string }) {
+       "use server";
+       if (payload.actionType !== "RSVP_SUBMISSION") throw new Error("Unsupported invitation action.");
+       const { rsvpInvitation } = await import("@/lib/invitations");
+-      await rsvpInvitation({ token, response: payload.response });
++      await rsvpInvitation({
++        token,
++        response: payload.response,
++        guestCount: payload.guestCount,
++        guestNames: payload.guestNames,
++        message: payload.message,
++      });
+     }
+ 
+     const onAction: PageActionHandler = handlePageAction;
+     return (
+       <UniversalPageRenderer
+         kind="invitation"
+-        templateId={publishedPage.published_snapshot.template_id}
++        templateId={templateId}
+         layout={legacyInvitationSnapshotToLayout(publishedPage.published_snapshot)}
+         data={pageData}
+         onAction={onAction}
+diff --git a/app/invitation/preview/PreviewSandboxClient.tsx b/app/invitation/preview/PreviewSandboxClient.tsx
+index 66fee46..d93c9a3 100644
+--- a/app/invitation/preview/PreviewSandboxClient.tsx
++++ b/app/invitation/preview/PreviewSandboxClient.tsx
+@@ -5,6 +5,7 @@ import {
+   BOTANICAL_REVERIE_SAMPLE_DATA,
+   FULL_INVITATION_SAMPLE_DATA,
+   WEDDING_INVITATION_SAMPLE_DATA,
++  EVERGREEN_ENVELOPE_SAMPLE_DATA,
+   BIRTHDAY_INVITATION_SAMPLE_DATA,
+   MINIMAL_INVITATION_SAMPLE_DATA,
+   PORTRAIT_HERO_SAMPLE_DATA,
+@@ -103,6 +104,9 @@ const SCENARIO_LABELS: Record<ScenarioKey, { label: string; description: string
+ 
+ /** Get the base dataset for a category / template */
+ function getBaseDataForTemplate(templateId: string): InvitationPageData {
++  if (templateId === "evergreen-envelope") {
++    return EVERGREEN_ENVELOPE_SAMPLE_DATA;
++  }
+   if (templateId === "botanical-reverie") {
+     return BOTANICAL_REVERIE_SAMPLE_DATA;
+   }
+@@ -185,10 +189,25 @@ function resolveScenarioData(
+       };
+       break;
+     case "one_gallery":
+-      scenarioData = {
+-        ...base,
+-        gallery: ONE_GALLERY_IMAGE_SAMPLE_DATA.gallery,
+-      };
++      scenarioData = templateId === "evergreen-envelope"
++        ? {
++            ...base,
++            envelopePhoto: null,
++            coverPhoto: base.coverPhoto,
++            polaroidPhotoOne: null,
++            polaroidPhotoTwo: null,
++            storyPhotoOne: null,
++            storyPhotoTwo: null,
++            closingPhoto: null,
++            rsvpPhoto: null,
++            heroImage: null,
++            storyImage: null,
++            gallery: [],
++          }
++        : {
++            ...base,
++            gallery: ONE_GALLERY_IMAGE_SAMPLE_DATA.gallery,
++          };
+       break;
+     case "twelve_gallery":
+       scenarioData = {
+diff --git a/components/invitation/InvitationFocalPicker.tsx b/components/invitation/InvitationFocalPicker.tsx
+index d9f12f2..a0e6cae 100644
+--- a/components/invitation/InvitationFocalPicker.tsx
++++ b/components/invitation/InvitationFocalPicker.tsx
+@@ -49,14 +49,16 @@ interface Props {
+   onChange: (focal: FocalPoint) => void;
+   /** Template whose real frame shape drives the live preview. */
+   templateId?: string | null;
++  /** Optional slot-specific crop frame for templates with several photo shapes. */
++  frameShapeOverride?: InvitationFrameShape;
+   disabled?: boolean;
+ }
+ 
+-export function InvitationFocalPicker({ imageUrl, focal, onChange, templateId, disabled }: Props) {
++export function InvitationFocalPicker({ imageUrl, focal, onChange, templateId, frameShapeOverride, disabled }: Props) {
+   const stageRef = useRef<HTMLDivElement>(null);
+   const draggingRef = useRef(false);
+   const normalized = normalizeFocalPoint(focal.x, focal.y);
+-  const shape = frameShapeForTemplate(templateId);
++  const shape = frameShapeOverride ?? frameShapeForTemplate(templateId);
+ 
+   const pickFromPointer = useCallback(
+     (clientX: number, clientY: number) => {
+diff --git a/components/invitation/UnifiedTemplatePicker.tsx b/components/invitation/UnifiedTemplatePicker.tsx
+index 0877de4..46707ce 100644
+--- a/components/invitation/UnifiedTemplatePicker.tsx
++++ b/components/invitation/UnifiedTemplatePicker.tsx
+@@ -335,7 +335,9 @@ export function UnifiedTemplatePicker({
+     () => selected ? buildInvitationTemplatePreviewData(selected.pageId, draft, event) : null,
+     [selected, draft, event]
+   );
+-  const selectedSample = selected ? getInvitationTemplateSampleData(selected.pageId) : null;
++  const selectedSample = selected
++    ? getInvitationTemplateSampleData(selected.pageId, selectedPageData?.data.locale ?? "en")
++    : null;
+   const cardHostNames =
+     nonEmptyString(draft.host_names) ?? nonEmptyString(selectedPageData?.data.hostNames) ??
+     nonEmptyString(selectedSample?.hostNames) ??
+@@ -451,7 +453,7 @@ export function UnifiedTemplatePicker({
+             {visiblePairs.map((pair) => {
+               const card = cardBySlug(cardTemplates, pair.cardSlug)!;
+               const pairPageData = buildInvitationTemplatePreviewData(pair.pageId, draft, event);
+-              const sample = getInvitationTemplateSampleData(pair.pageId);
++              const sample = getInvitationTemplateSampleData(pair.pageId, pairPageData.data.locale ?? "en");
+               const pairCardData = {
+                 ...SAMPLE_CARD_GUEST,
+                 eventTitle: nonEmptyString(draft.display_title) ?? nonEmptyString(event.title) ?? pairPageData.data.title,
+@@ -459,8 +461,8 @@ export function UnifiedTemplatePicker({
+                 eventDate: nonEmptyString(event.event_date) ?? pairPageData.data.eventDate ?? null,
+                 venue: nonEmptyString(draft.venue_name) ?? nonEmptyString(event.venue) ?? pairPageData.data.venue ?? null,
+                 city: nonEmptyString(event.city) ?? pairPageData.data.city ?? null,
+-                backgroundImageUrl: pair.baseId === "cover" || pair.baseId === "botanical-reverie" || pair.baseId === "luxe-editorial"
+-                  ? nonEmptyString(draft.hero_image_url) ?? ((pair.baseId === "botanical-reverie" || pair.baseId === "luxe-editorial") ? pairPageData.data.heroImage ?? null : null)
++                backgroundImageUrl: pair.baseId === "cover" || pair.baseId === "botanical-reverie" || pair.baseId === "evergreen-envelope" || pair.baseId === "luxe-editorial"
++                  ? nonEmptyString(draft.hero_image_url) ?? ((pair.baseId === "botanical-reverie" || pair.baseId === "evergreen-envelope" || pair.baseId === "luxe-editorial") ? pairPageData.data.heroImage ?? null : null)
+                   : null,
+                 locale: pairPageData.data.locale,
+               };
+@@ -486,7 +488,12 @@ export function UnifiedTemplatePicker({
+           {selected && selectedPageData && selectedCard && (
+             <div className="overflow-hidden rounded-xl border border-zinc-300 bg-white">
+               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2">
+-                <p className="min-w-0 text-xs font-bold text-zinc-900">{selectedName}</p>
++                <div className="min-w-0">
++                  <p className="text-xs font-bold text-zinc-900">{selectedName}</p>
++                  {selected?.baseId === "evergreen-envelope" ? (
++                    <p className="mt-0.5 text-[11px] leading-snug text-zinc-600">{t("unifiedEvergreenEnvelopeDescription")}</p>
++                  ) : null}
++                </div>
+                 <div className="flex rounded-lg border border-zinc-300 bg-zinc-50 p-0.5" role="group" aria-label={t("unifiedPreviewLabel")}>
+                   {(["page", "card"] as const).map((tab) => (
+                     <button
+diff --git a/components/invitation/blocks/ActionPortalBlock.tsx b/components/invitation/blocks/ActionPortalBlock.tsx
+index 62a129d..8514067 100644
+--- a/components/invitation/blocks/ActionPortalBlock.tsx
++++ b/components/invitation/blocks/ActionPortalBlock.tsx
+@@ -7,6 +7,7 @@ import type { InvitationPageData } from "@/types/invitation-template";
+ import { ExpandableSvgQr } from "@/components/cards/ExpandableQr";
+ import { downloadIcsFile, generateGoogleCalendarUrl } from "@/lib/event-time";
+ import { getInvitationDictionary, localizeInvitationSystemCopy } from "@/lib/invitation-i18n";
++import { buildRsvpSubmissionPayload } from "@/lib/page-actions";
+ 
+ export type ActionPortalType = "RSVP_SUBMISSION" | "BUSINESS_LEAD";
+ 
+@@ -20,6 +21,7 @@ export function ActionPortalBlock({
+   currentResponse,
+   invitationData,
+   shared = false,
++  evergreenRsvp = false,
+ }: {
+   actionType: ActionPortalType;
+   theme: PageGlobalTheme;
+@@ -30,6 +32,7 @@ export function ActionPortalBlock({
+   currentResponse?: "pending" | "accepted" | "declined" | null;
+   invitationData?: InvitationPageData;
+   shared?: boolean;
++  evergreenRsvp?: boolean;
+ }) {
+   const [busy, setBusy] = useState(false);
+   const [message, setMessage] = useState("");
+@@ -37,6 +40,12 @@ export function ActionPortalBlock({
+   const [email, setEmail] = useState("");
+   const [leadMessage, setLeadMessage] = useState("");
+   const [response, setResponse] = useState(currentResponse ?? "pending");
++  const [evergreenResponse, setEvergreenResponse] = useState<"" | "accepted" | "declined">(
++    currentResponse === "accepted" || currentResponse === "declined" ? currentResponse : "",
++  );
++  const [guestCount, setGuestCount] = useState("");
++  const [guestNames, setGuestNames] = useState("");
++  const [wishes, setWishes] = useState("");
+   const locale = invitationData?.locale ?? "en";
+   const actionLabel = localizeInvitationSystemCopy(actionType === "RSVP_SUBMISSION" ? "RSVP" : "Contact us", locale);
+   const blockTitle = localizeInvitationSystemCopy(title || actionLabel, locale);
+@@ -62,6 +71,7 @@ export function ActionPortalBlock({
+ 
+   useEffect(() => {
+     setResponse(currentResponse ?? "pending");
++    setEvergreenResponse(currentResponse === "accepted" || currentResponse === "declined" ? currentResponse : "");
+   }, [currentResponse]);
+ 
+   async function submitRsvp(nextResponse: "accepted" | "declined") {
+@@ -69,7 +79,7 @@ export function ActionPortalBlock({
+     setBusy(true);
+     setMessage("");
+     try {
+-      await onAction({ actionType: "RSVP_SUBMISSION", response: nextResponse });
++      await onAction(buildRsvpSubmissionPayload(nextResponse));
+       setResponse(nextResponse);
+       setMessage(nextResponse === "accepted" ? dictionary.attendanceConfirmed : dictionary.responseNoted);
+     } catch {
+@@ -79,6 +89,61 @@ export function ActionPortalBlock({
+     }
+   }
+ 
++  async function submitEvergreenRsvp(event: FormEvent<HTMLFormElement>) {
++    event.preventDefault();
++    if (!onAction || busy || !evergreenResponse) return;
++    if (evergreenResponse === "accepted" && !guestCount) return;
++
++    setBusy(true);
++    setMessage("");
++    try {
++      await onAction(buildRsvpSubmissionPayload(evergreenResponse, {
++        ...(evergreenResponse === "accepted" ? {
++          guestCount: Number(guestCount),
++          guestNames,
++        } : {}),
++        message: wishes,
++      }));
++      setResponse(evergreenResponse);
++      setMessage(evergreenResponse === "accepted" ? dictionary.attendanceConfirmed : dictionary.responseNoted);
++    } catch {
++      setMessage(dictionary.rsvpFailed);
++    } finally {
++      setBusy(false);
++    }
++  }
++
++  const configuredAllowance = invitationData?.guest.guestAllowance;
++  const maxAttendees = typeof configuredAllowance === "number"
++    && Number.isInteger(configuredAllowance)
++    && configuredAllowance >= 1
++    && configuredAllowance <= 20
++    ? configuredAllowance
++    : 10;
++  const evergreenCopy = locale === "fr"
++    ? {
++        guestNames: "Noms complets de tous les invités présents",
++        response: "Serez-vous parmi nous ?",
++        chooseResponse: "Choisissez une réponse",
++        accept: "Oui, je serai présent(e)",
++        decline: "Non, je ne pourrai pas venir",
++        count: "Combien de personnes seront présentes ?",
++        chooseCount: "Choisissez le nombre d’invités",
++        wishes: "Laissez-nous vos vœux",
++        submit: "Envoyer ma réponse",
++      }
++    : {
++        guestNames: "Full names of all guests attending the event",
++        response: "Will you join us for our event?",
++        chooseResponse: "Choose a response",
++        accept: "Yes, I’ll be attending",
++        decline: "No, I can’t make it",
++        count: "How many people will be attending?",
++        chooseCount: "Choose the number of guests",
++        wishes: "Leave your best wishes here:",
++        submit: "Submit",
++      };
++
+   async function submitLead(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+     if (!onAction || busy) return;
+@@ -129,24 +194,90 @@ export function ActionPortalBlock({
+                   ) : null}
+                 </div>
+               ) : null}
+-              <div className="mt-6 flex flex-wrap justify-center gap-3">
+-                <button
+-                  type="button"
+-                  disabled={!onAction || busy || response === "accepted"}
+-                  onClick={() => void submitRsvp("accepted")}
+-                  className={`max-w-full whitespace-normal break-words disabled:cursor-not-allowed disabled:opacity-60 ${pageThemeButtonClassName(theme, "px-5 py-3 text-sm font-semibold")}`}
+-                >
+-                  {response === "accepted" ? dictionary.attending : dictionary.accept}
+-                </button>
+-                <button
+-                  type="button"
+-                  disabled={!onAction || busy || response === "declined"}
+-                  onClick={() => void submitRsvp("declined")}
+-                  className={`max-w-full whitespace-normal break-words disabled:cursor-not-allowed disabled:opacity-60 ${pageThemeButtonClassName(theme, "px-5 py-3 text-sm font-semibold")}`}
+-                >
+-                  {response === "declined" ? dictionary.declined : dictionary.decline}
+-                </button>
+-              </div>
++              {evergreenRsvp ? (
++                <form className="mx-auto mt-6 grid max-w-xl gap-4 text-left" onSubmit={(event) => void submitEvergreenRsvp(event)}>
++                  <label className={`grid gap-1 text-sm ${theme.classes.body ?? ""}`}>
++                    {evergreenCopy.guestNames}
++                    <input
++                      name="guestNames"
++                      value={guestNames}
++                      onChange={(event) => setGuestNames(event.target.value)}
++                      maxLength={300}
++                      disabled={!onAction || busy || response === "accepted" || response === "declined"}
++                      className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950"
++                    />
++                  </label>
++                  <label className={`grid gap-1 text-sm ${theme.classes.body ?? ""}`}>
++                    {evergreenCopy.response}
++                    <select
++                      name="response"
++                      required
++                      value={evergreenResponse}
++                      onChange={(event) => setEvergreenResponse(event.target.value as "" | "accepted" | "declined")}
++                      disabled={!onAction || busy || response === "accepted" || response === "declined"}
++                      className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950"
++                    >
++                      <option value="">{evergreenCopy.chooseResponse}</option>
++                      <option value="accepted">{evergreenCopy.accept}</option>
++                      <option value="declined">{evergreenCopy.decline}</option>
++                    </select>
++                  </label>
++                  <label className={`grid gap-1 text-sm ${theme.classes.body ?? ""}`}>
++                    {evergreenCopy.count}
++                    <select
++                      name="guestCount"
++                      required={evergreenResponse === "accepted"}
++                      value={guestCount}
++                      onChange={(event) => setGuestCount(event.target.value)}
++                      disabled={!onAction || busy || response === "accepted" || response === "declined"}
++                      className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950"
++                    >
++                      <option value="">{evergreenCopy.chooseCount}</option>
++                      {Array.from({ length: maxAttendees }, (_, index) => index + 1).map((count) => (
++                        <option key={count} value={count}>{count}</option>
++                      ))}
++                    </select>
++                  </label>
++                  <label className={`grid gap-1 text-sm ${theme.classes.body ?? ""}`}>
++                    {evergreenCopy.wishes}
++                    <textarea
++                      name="message"
++                      rows={4}
++                      value={wishes}
++                      onChange={(event) => setWishes(event.target.value)}
++                      maxLength={500}
++                      disabled={!onAction || busy || response === "accepted" || response === "declined"}
++                      className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950"
++                    />
++                  </label>
++                  <button
++                    type="submit"
++                    disabled={!onAction || busy || !evergreenResponse || (evergreenResponse === "accepted" && !guestCount) || response === "accepted" || response === "declined"}
++                    className={`justify-self-start disabled:cursor-not-allowed disabled:opacity-60 ${pageThemeButtonClassName(theme, "px-5 py-3 text-sm font-semibold")}`}
++                  >
++                    {evergreenCopy.submit}
++                  </button>
++                </form>
++              ) : (
++                <div className="mt-6 flex flex-wrap justify-center gap-3">
++                  <button
++                    type="button"
++                    disabled={!onAction || busy || response === "accepted"}
++                    onClick={() => void submitRsvp("accepted")}
++                    className={`max-w-full whitespace-normal break-words disabled:cursor-not-allowed disabled:opacity-60 ${pageThemeButtonClassName(theme, "px-5 py-3 text-sm font-semibold")}`}
++                  >
++                    {response === "accepted" ? dictionary.attending : dictionary.accept}
++                  </button>
++                  <button
++                    type="button"
++                    disabled={!onAction || busy || response === "declined"}
++                    onClick={() => void submitRsvp("declined")}
++                    className={`max-w-full whitespace-normal break-words disabled:cursor-not-allowed disabled:opacity-60 ${pageThemeButtonClassName(theme, "px-5 py-3 text-sm font-semibold")}`}
++                  >
++                    {response === "declined" ? dictionary.declined : dictionary.decline}
++                  </button>
++                </div>
++              )}
+               {invitationData?.ticketInstance?.qrCode && response !== "declined" ? (
+                 <div className="mt-6 flex flex-col items-center">
+                   <ExpandableSvgQr
+diff --git a/components/invitation/blocks/InvitationBlockRegistry.tsx b/components/invitation/blocks/InvitationBlockRegistry.tsx
+index 993de82..83f575f 100644
+--- a/components/invitation/blocks/InvitationBlockRegistry.tsx
++++ b/components/invitation/blocks/InvitationBlockRegistry.tsx
+@@ -24,11 +24,13 @@ import {
+   StoryBlock,
+ } from "@/components/invitation/blocks/InvitationPresentationBlocks";
+ import { resolveInvitationBindings } from "@/lib/invitation-page-layout";
++import { usesEvergreenRsvpForm } from "@/lib/invitation-rsvp";
+ 
+ interface InvitationBlockRenderContext {
+   block: PageLayoutBlock;
+   data: InvitationPageData;
+   layout: PageBlocksLayout;
++  templateId: string;
+   onAction?: PageActionHandler;
+   shared: boolean;
+   romanticEnvelope: boolean;
+@@ -71,17 +73,18 @@ const BLOCK_COMPONENTS = {
+     const content = resolvedContent(block, data);
+     return <DetailsBlock data={{ ...data, ...content } as InvitationPageData} theme={layout.global_theme} romanticEnvelope={romanticEnvelope} botanicalReverie={botanicalReverie} presentation={detailsPresentation} showOverview={detailsPresentation !== "luxe-editorial"} />;
+   },
+-  countdown: ({ block, data, layout, romanticEnvelope, botanicalReverie, detailsPresentation }) => {
++  countdown: ({ block, data, layout, templateId, romanticEnvelope, botanicalReverie, detailsPresentation }) => {
+     const content = resolvedContent(block, data);
+-    return <CountdownBlock targetDate={text(content.targetDate) ?? data.eventDate} theme={layout.global_theme} locale={data.locale} romanticEnvelope={romanticEnvelope} botanicalReverie={botanicalReverie} luxeEditorial={detailsPresentation === "luxe-editorial"} />;
++    return <CountdownBlock targetDate={text(content.targetDate) ?? data.eventDate} theme={layout.global_theme} locale={data.locale} romanticEnvelope={romanticEnvelope} showRomanticTagline={templateId !== "evergreen-envelope" && romanticEnvelope} botanicalReverie={botanicalReverie} luxeEditorial={detailsPresentation === "luxe-editorial"} />;
+   },
+   location_map: ({ block, data, layout }) => {
+     const content = resolvedContent(block, data);
+     return <LocationMapBlock latitude={content.latitude} longitude={content.longitude} venue={text(content.venue)} address={text(content.address)} city={text(content.city)} theme={layout.global_theme} locale={data.locale} />;
+   },
+-  schedule: ({ block, data, layout, romanticEnvelope, botanicalReverie, detailsPresentation }) => {
++  schedule: ({ block, data, layout, templateId, romanticEnvelope, botanicalReverie, detailsPresentation }) => {
+     const content = resolvedContent(block, data);
+-    return <ScheduleBlock timeline={Array.isArray(content.timeline) ? content.timeline as InvitationPageData["schedule"] : null} theme={layout.global_theme} locale={data.locale} romanticEnvelope={romanticEnvelope} botanicalReverie={botanicalReverie} presentation={detailsPresentation} />;
++    const timeline = Array.isArray(content.timeline) ? content.timeline as InvitationPageData["schedule"] : templateId === "evergreen-envelope" ? data.schedule : null;
++    return <ScheduleBlock timeline={timeline} theme={layout.global_theme} locale={data.locale} romanticEnvelope={romanticEnvelope} botanicalReverie={botanicalReverie} evergreenEnvelope={templateId === "evergreen-envelope"} presentation={detailsPresentation} />;
+   },
+   gallery: ({ block, data, layout, botanicalReverie, galleryPresentation }) => {
+     const content = resolvedContent(block, data);
+@@ -94,11 +97,11 @@ const BLOCK_COMPONENTS = {
+     const content = resolvedContent(block, data);
+     return <MusicBlock data={{ ...data, musicAudioUrl: text(content.audioUrl), musicTitle: text(content.title), musicLinks: Array.isArray(content.links) ? content.links as InvitationPageData["musicLinks"] : null }} />;
+   },
+-  action_portal: ({ block, data, layout, onAction, shared }) => {
++  action_portal: ({ block, data, layout, templateId, onAction, shared }) => {
+     const content = resolvedContent(block, data);
+     if (content.actionType !== "RSVP_SUBMISSION" && content.actionType !== "BUSINESS_LEAD") return null;
+     const actionType: ActionPortalType = content.actionType;
+-    return <ActionPortalBlock actionType={actionType} title={text(content.title) ?? undefined} description={text(content.description) ?? undefined} guestName={data.guest.name} currentResponse={data.guest.rsvpStatus} invitationData={data} theme={layout.global_theme} onAction={onAction} shared={shared} />;
++    return <ActionPortalBlock actionType={actionType} title={text(content.title) ?? undefined} description={text(content.description) ?? undefined} guestName={data.guest.name} currentResponse={data.guest.rsvpStatus} invitationData={data} theme={layout.global_theme} onAction={onAction} shared={shared} evergreenRsvp={usesEvergreenRsvpForm(templateId)} />;
+   },
+ } satisfies Record<InvitationBlockType, BlockComponent>;
+ 
+diff --git a/components/invitation/blocks/InvitationBlocksLayoutClient.tsx b/components/invitation/blocks/InvitationBlocksLayoutClient.tsx
+index 9de6354..1f8b46a 100644
+--- a/components/invitation/blocks/InvitationBlocksLayoutClient.tsx
++++ b/components/invitation/blocks/InvitationBlocksLayoutClient.tsx
+@@ -51,7 +51,7 @@ export function InvitationBlocksLayoutClient({
+   const renderedBlocks = compiledLayout.layout_blocks.map((block) => {
+     if (block.type === "interactive_envelope" || block.type === "romantic_envelope_gate") return null;
+     const content = renderInvitationBlock({
+-      block, data, layout: compiledLayout, onAction, shared,
++      block, data, layout: compiledLayout, templateId, onAction, shared,
+       romanticEnvelope: usesEnvelopeGate,
+       botanicalReverie: templateId === "botanical-reverie",
+       detailsPresentation,
+diff --git a/components/invitation/blocks/InvitationPresentationBlocks.tsx b/components/invitation/blocks/InvitationPresentationBlocks.tsx
+index 99b798f..64bc27c 100644
+--- a/components/invitation/blocks/InvitationPresentationBlocks.tsx
++++ b/components/invitation/blocks/InvitationPresentationBlocks.tsx
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useEffect, useState } from "react";
++import { useTranslations } from "next-intl";
+ import type {
+   InvitationAccommodationItem,
+   InvitationGalleryItem,
+@@ -407,12 +408,28 @@ export function GalleryBlock({
+   );
+ }
+ 
++const EVERGREEN_SCHEDULE_ICON_FALLBACKS = ["dining", "champagne", "cake", "dancing", "gift"] as const;
++
++function EvergreenScheduleIcon({ icon, index }: { icon?: InvitationScheduleItem["icon"]; index: number }) {
++  const selected = icon || EVERGREEN_SCHEDULE_ICON_FALLBACKS[index % EVERGREEN_SCHEDULE_ICON_FALLBACKS.length];
++  return (
++    <svg viewBox="0 0 48 48" className="h-9 w-9 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
++      {selected === "dining" ? <><circle cx="24" cy="24" r="15" /><circle cx="24" cy="24" r="10" /><path d="M8 7v13m-3-13v7c0 3 6 3 6 0V7m-3 13v21M40 7c-5 5-5 11-1 13v21M40 7v13" /></> : null}
++      {selected === "champagne" ? <><path d="M8 7h13v8a6.5 6.5 0 0 1-13 0V7Zm19 0h13v8a6.5 6.5 0 0 1-13 0V7ZM14.5 21v15m-5 0h10m11-15v15m-5 0h10M14.5 36v5m11-5v5m-7 0h14" /><path d="M8 12h13m6 0h13" /></> : null}
++      {selected === "cake" ? <><path d="M8 23h32v14H8zM5 41h38M12 23c0-5 5-5 5-10 0 5 5 5 5 10m3 0c0-5 5-5 5-10 0 5 5 5 5 10M15 29v3m9-3v3m9-3v3" /><path d="M17 9V6m12 3V6" /></> : null}
++      {selected === "dancing" ? <><circle cx="17" cy="10" r="3" /><circle cx="32" cy="9" r="3" /><path d="m17 14-3 11 8 4 4 12m-11-16-6 10m12-6 10-9 6 3m-11 2 6 7 6 1m-16-12 8-5" /><path d="M7 41h34" /></> : null}
++      {selected === "gift" ? <><path d="M7 20h34v21H7zM5 14h38v7H5zM24 14v27" /><path d="M24 14c-11 0-13-2-13-6 0-5 9-4 13 6Zm0 0c11 0 13-2 13-6 0-5-9-4-13 6Z" /></> : null}
++    </svg>
++  );
++}
++
+ export function ScheduleBlock({
+   timeline,
+   theme,
+   locale = "en",
+   romanticEnvelope = false,
+   botanicalReverie = false,
++  evergreenEnvelope = false,
+   presentation,
+ }: {
+   timeline?: InvitationScheduleItem[] | null;
+@@ -420,10 +437,35 @@ export function ScheduleBlock({
+   locale?: InvitationPageData["locale"];
+   romanticEnvelope?: boolean;
+   botanicalReverie?: boolean;
++  evergreenEnvelope?: boolean;
+   presentation?: InvitationDetailsPresentation;
+ }) {
+   const entries = (timeline ?? []).filter((item) => item.time && (item.title || item.label));
++  const t = useTranslations("Events");
+   if (entries.length === 0) return null;
++  if (evergreenEnvelope) {
++    return (
++      <section id="inv-schedule" data-evergreen-section="schedule" className="relative bg-[#52643a] px-5 py-14 text-[#fffdf2] sm:py-20">
++        <div className="mx-auto max-w-5xl">
++          <h2 className="mb-10 text-center font-serif text-2xl uppercase tracking-[.18em] text-[#fffdf2] sm:text-3xl">{t("evergreenScheduleHeading")}</h2>
++          <ol className="relative mx-auto max-w-3xl before:absolute before:bottom-6 before:left-[3.05rem] before:top-6 before:w-px before:bg-[#f5f0d8]/70 before:content-[''] sm:before:left-1/2">
++            {entries.map((item, index) => (
++              <li key={`${item.time}-${item.title}-${index}`} className="relative grid min-h-24 grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-4 py-4 sm:grid-cols-[1fr_4rem_1fr]">
++                <div className="relative z-10 grid size-14 place-items-center rounded-full border border-[#f5f0d8]/55 bg-[#52643a] text-[#fffdf2] sm:col-start-2 sm:row-start-1 sm:mx-auto">
++                  <EvergreenScheduleIcon icon={item.icon} index={index} />
++                </div>
++                <article className={`min-w-0 sm:row-start-1 ${index % 2 === 1 ? "sm:col-start-1 sm:text-right" : "sm:col-start-3"}`}>
++                  <p className="font-serif text-lg tracking-wide text-white">{item.time}</p>
++                  <h3 className="mt-1 break-words font-serif text-lg text-[#fffdf2]">{item.title || item.label}</h3>
++                  {item.description ? <p className="mt-1 break-words text-sm leading-6 text-[#f5f0d8]">{item.description}</p> : null}
++                </article>
++              </li>
++            ))}
++          </ol>
++        </div>
++      </section>
++    );
++  }
+   const variant = presentation ?? (botanicalReverie ? "botanical" : romanticEnvelope ? "romantic" : "editorial");
+   const isTrack = variant === "botanical" || variant === "romantic" || variant === "luxe-editorial" || variant === "black-tie" || variant === "birthday";
+   const trackLine = variant === "botanical"
+@@ -491,6 +533,7 @@ export function CountdownBlock({
+   theme,
+   locale = "en",
+   romanticEnvelope = false,
++  showRomanticTagline = romanticEnvelope,
+   botanicalReverie = false,
+   luxeEditorial = false,
+ }: {
+@@ -498,6 +541,7 @@ export function CountdownBlock({
+   theme: PageGlobalTheme;
+   locale?: InvitationPageData["locale"];
+   romanticEnvelope?: boolean;
++  showRomanticTagline?: boolean;
+   botanicalReverie?: boolean;
+   luxeEditorial?: boolean;
+ }) {
+@@ -548,7 +592,7 @@ export function CountdownBlock({
+             ))}
+           </div>
+         )}
+-        {romanticEnvelope ? <p className="font-serif text-[10px] tracking-widest uppercase opacity-70 mt-2">{localizeInvitationSystemCopy("Counting the days until we say I do", locale)}</p> : null}
++        {showRomanticTagline ? <p className="font-serif text-[10px] tracking-widest uppercase opacity-70 mt-2">{localizeInvitationSystemCopy("Counting the days until we say I do", locale)}</p> : null}
+       </div>
+     </section>
+   );
+diff --git a/components/invitation/templates/InvitationPageComponentRegistry.tsx b/components/invitation/templates/InvitationPageComponentRegistry.tsx
+index 4496789..f773399 100644
+--- a/components/invitation/templates/InvitationPageComponentRegistry.tsx
++++ b/components/invitation/templates/InvitationPageComponentRegistry.tsx
+@@ -33,6 +33,10 @@ const CUSTOM_INVITATION_PAGE_COMPONENTS = {
+     import("@/components/invitation/templates/luxe-editorial/LuxeEditorialPageTemplate")
+       .then((module) => ({ default: module.LuxeEditorialPageTemplate }))
+   ),
++  "evergreen-envelope": lazy(() =>
++    import("@/components/invitation/templates/evergreen-envelope/EvergreenEnvelopePageTemplate")
++      .then((module) => ({ default: module.EvergreenEnvelopePageTemplate }))
++  ),
+ } satisfies Record<CustomInvitationPageComponentId, LazyExoticComponent<ComponentType<InvitationCustomPageProps>>>;
+ 
+ class InvitationTemplateErrorBoundary extends Component<
+diff --git a/components/invitation/templates/invitation-sample-data.ts b/components/invitation/templates/invitation-sample-data.ts
+index 798e56a..65d651c 100644
+--- a/components/invitation/templates/invitation-sample-data.ts
++++ b/components/invitation/templates/invitation-sample-data.ts
+@@ -320,6 +320,116 @@ export const WEDDING_INVITATION_SAMPLE_DATA: InvitationPageData = {
+   token: "weddingtoken0123456789abcdef0123456789abcdef0123456789abcdef012345",
+ };
+ 
++const EVERGREEN_SAMPLE_GUEST = {
++  name: "Honored Guest",
++  rsvpStatus: "pending" as const,
++  isVip: false,
++};
++
++const EVERGREEN_PHOTOS = {
++  envelopePhoto: "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=900&auto=format&fit=crop",
++  coverPhoto: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1200&auto=format&fit=crop",
++  polaroidPhotoOne: "https://images.unsplash.com/photo-1537633552985-df8429e8048b?q=80&w=700&auto=format&fit=crop",
++  polaroidPhotoTwo: "https://images.unsplash.com/photo-1529636798458-92182e662485?q=80&w=700&auto=format&fit=crop",
++  storyPhotoOne: "https://images.unsplash.com/photo-1523438885200-e635ba2c371e?q=80&w=900&auto=format&fit=crop",
++  storyPhotoTwo: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?q=80&w=900&auto=format&fit=crop",
++  closingPhoto: "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?q=80&w=1200&auto=format&fit=crop",
++  rsvpPhoto: "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?q=80&w=700&auto=format&fit=crop",
++};
++
++/** Sample-only English data for Evergreen Envelope. Never used for published guest data. */
++export const EVERGREEN_ENVELOPE_SAMPLE_DATA: InvitationPageData = {
++  ...WEDDING_INVITATION_SAMPLE_DATA,
++  ...EVERGREEN_PHOTOS,
++  title: "A Wedding in the Garden",
++  partner1Name: "Mira Okafor",
++  partner2Name: "Tunde Adeyemi",
++  familyNote: "Together with their families",
++  parentsLine: "The Okafor and Adeyemi families",
++  eyebrow: "Our Wedding",
++  hostNames: "Mira Okafor & Tunde Adeyemi",
++  eventDate: "2027-02-20T14:00:00+01:00",
++  endDate: "2027-02-20T22:00:00+01:00",
++  timezone: "Africa/Lagos",
++  venue: "The Palm Courtyard",
++  address: "18 Oniru Road",
++  city: "Lagos, Nigeria",
++  latitude: undefined,
++  longitude: undefined,
++  venues: [
++    { label: "Ceremony", name: "The Palm Courtyard", address: "18 Oniru Road, Lagos, Nigeria", time: "2:00 PM" },
++    { label: "Reception", name: "Palm Courtyard Garden", address: "18 Oniru Road, Lagos, Nigeria", time: "4:00 PM" },
++  ],
++  dressCode: "Garden formal",
++  dressCodeNotes: "Soft natural tones are welcome.",
++  dressCodeSwatches: [
++    { name: "Sage", hex: "#879276" },
++    { name: "Ivory", hex: "#f3eddc" },
++    { name: "Olive", hex: "#667146" },
++  ],
++  schedule: [
++    { time: "2:00 PM", title: "Dinner", icon: "dining" },
++    { time: "3:00 PM", title: "Toast", icon: "champagne" },
++    { time: "4:00 PM", title: "Cake cutting", icon: "cake" },
++    { time: "5:00 PM", title: "Dancing", icon: "dancing" },
++    { time: "6:00 PM", title: "Thanks for coming!", icon: "gift" },
++  ],
++  storyHeadline: "Love wrote our story, and we’ll celebrate its most beautiful chapter in:",
++  storyText: "We met through friends, kept finding reasons to meet again, and are grateful to celebrate this next chapter with you.",
++  adultsOnlyNote: "We love your little ones, but this celebration is for adults.",
++  wishingWellNote: "Your presence is the greatest gift. If you wish, you may share a gift with us.",
++  storyForeverWord: "forever",
++  closingCaption: "We cannot wait to celebrate with you.",
++  rsvpIntro: "We are so excited to celebrate one of the most important days of our lives with you. Please RSVP by February 1, 2027.",
++  monogramInitials: "M & T",
++  albumUrl: "https://example.com/mira-and-tunde-album",
++  showWishingWell: true,
++  showAdultsOnly: true,
++  weddingStory: [
++    { title: "The beginning", text: "A conversation that turned into a friendship, then into home.", image: EVERGREEN_PHOTOS.storyPhotoOne },
++    { title: "The question", text: "A quiet evening became a promise for every season ahead.", image: EVERGREEN_PHOTOS.storyPhotoTwo },
++  ],
++  guest: EVERGREEN_SAMPLE_GUEST,
++  token: "preview-sample-token",
++};
++
++/** French sample content for the same layout and photo frames. */
++export const EVERGREEN_ENVELOPE_SAMPLE_DATA_FR: InvitationPageData = {
++  ...EVERGREEN_ENVELOPE_SAMPLE_DATA,
++  locale: "fr",
++  title: "Un mariage au jardin",
++  eyebrow: "Le cœur rempli de joie",
++  hostNames: "Mira Okafor et Tunde Adeyemi",
++  familyNote: "Entourés de leurs familles",
++  parentsLine: "Avec l’amour et la bénédiction de nos familles",
++  dressCode: "Tenue élégante de jardin",
++  dressCodeNotes: "Les tons naturels et doux sont les bienvenus.",
++  dressCodeSwatches: [
++    { name: "Sauge", hex: "#879276" },
++    { name: "Ivoire", hex: "#f3eddc" },
++    { name: "Olive", hex: "#667146" },
++  ],
++  schedule: [
++    { time: "14 h 00", title: "Dîner", icon: "dining" },
++    { time: "15 h 00", title: "Toast", icon: "champagne" },
++    { time: "16 h 00", title: "Découpe du gâteau", icon: "cake" },
++    { time: "17 h 00", title: "Danse", icon: "dancing" },
++    { time: "18 h 00", title: "Merci d’être venus !", icon: "gift" },
++  ],
++  storyHeadline: "Notre histoire nous a menés à ce beau chapitre à célébrer ensemble :",
++  storyText: "Une rencontre par des amis, puis mille raisons de se revoir. Nous avons hâte de célébrer ce nouveau chapitre avec vous.",
++  adultsOnlyNote: "Nous aimons vos enfants, mais cette célébration est réservée aux adultes.",
++  wishingWellNote: "Votre présence est le plus beau des cadeaux. Si vous le souhaitez, vous pouvez nous offrir un cadeau.",
++  storyForeverWord: "pour toujours",
++  closingCaption: "Nous avons hâte de célébrer avec vous.",
++  rsvpIntro: "Nous sommes ravis de célébrer avec vous. Merci de répondre avant le 1er février 2027.",
++  albumUrl: "https://example.com/mira-and-tunde-album",
++  weddingStory: [
++    { title: "Le début", text: "Une conversation devenue amitié, puis un foyer.", image: EVERGREEN_PHOTOS.storyPhotoOne },
++    { title: "La demande", text: "Une soirée paisible devenue une promesse pour toutes les saisons.", image: EVERGREEN_PHOTOS.storyPhotoTwo },
++  ],
++};
++
+ /** Local-art preview fixture for Botanical Reverie; no remote stock assets. */
+ export const BOTANICAL_REVERIE_SAMPLE_DATA: InvitationPageData = {
+   ...WEDDING_INVITATION_SAMPLE_DATA,
+diff --git a/docs/DATABASE.md b/docs/DATABASE.md
+index 39ba7a2..e61e196 100644
+--- a/docs/DATABASE.md
++++ b/docs/DATABASE.md
+@@ -1,9 +1,9 @@
+ # Aldriva — Database Architecture, Schema Reference & Migrations
+ 
+ > **Status**: Verified Technical Reference  
+-> **Canonical Migration Source**: `db/` (Migrations 1 to **186**)
++> **Canonical Migration Source**: `db/` (Migrations 1 to **188**)
+ > **Database Engine**: PostgreSQL 15+ (Supabase Managed)  
+-> **Last Updated**: 2026-10-21 (migration 186 application/verification is owner-reported, not independently queried). Latest forward migration in the repository: **186** (courier offers). **There is no `schema_migrations` table**, so applied status is only known where the owner reported it: **134, 136, 170, 171, 177, 181, 182, 183, 185, 186** are reported applied on staging; the owner specifically reports migration 186 verified. **184** is owner-approved but **NOT applied**; all other migrations are **UNKNOWN** on staging. Rollback twins are missing for **44** older forward migrations and for **182** (`ls db/migration_182*`). Migration-number reservations live in §5 below and in `docs/HANDOFF.md` §6.
++> **Last Updated**: 2026-10-21 (migration 186 application/verification and migration 187 application are owner-reported, not independently queried). Latest authored forward migration in the repository: **188** (Evergreen Envelope RSVP; not applied). **There is no `schema_migrations` table**, so applied status is only known where the owner reported it: **134, 136, 170, 171, 177, 181, 182, 183, 185, 186, 187** are reported applied on staging; the owner specifically reports migration 186 verified. **184** is owner-approved but **NOT applied**; **188** is authored and **NOT applied**; all other migrations are **UNKNOWN** on staging. Rollback twins are missing for **44** older forward migrations and for **182** (`ls db/migration_182*`). Migration-number reservations live in §5 below and in `docs/HANDOFF.md` §6.
+ 
+ ---
+ 
+@@ -193,9 +193,11 @@ The following tables are planned for future phases (DO NOT create before respect
+ | 184 | `migration_184_menu_promotions.sql` | yes | yes | **approved, not applied** (SHA-256 `30fb2d16…5482`) |
+ | 185 | `migration_185_kitchen_worker_access.sql` | yes | **no mirror** | **Applied on staging per owner report**; not independently queried (owner applies SQL manually) |
+ | 186 | `migration_186_courier_offers.sql` | yes | **no mirror** | **Applied and verified on staging per owner report**; not independently queried (owner applies SQL manually); rollback, staging cleanup, pre/post-checks, and claim-race SQL included |
+-| 187+ | — | — | — | **free** as of 2026-10-21 |
++| 187 | `migration_187_cook_performance.sql` | yes | no mirror | Owner-reported applied; not independently queried |
++| 188 | `migration_188_evergreen_envelope_rsvp.sql` | yes | no mirror | Authored, not applied; paired rollback exists; owner applies manually |
++| 189+ | — | — | — | **free** as of 2026-10-21 |
+ 
+-**Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185 = kitchen & delivery; 186 = courier offers. Next free = **187**.
++**Number reservations by owner/workstream:** 182–184 = menu options & promotions workstream; 185–187 = kitchen & delivery; 188 = Evergreen Envelope RSVP. Next free = **189**.
+ 
+ ### Read-only verification queries (no `schema_migrations` table)
+ 
+diff --git a/docs/HANDOFF.md b/docs/HANDOFF.md
+index 3b64aca..66c7952 100644
+--- a/docs/HANDOFF.md
++++ b/docs/HANDOFF.md
+@@ -94,7 +94,9 @@ Do these in order; details in `docs/ROADMAP.md` (Execution Order table).
+ | 184 | Menu promotions | Authored + owner-approved; **NOT applied**; rollback + `db/tests/migration_184_checks.sql` exist; SHA-256 `30fb2d16…5482` (both copies identical, VERIFIED 2026-10-20) | `feat/menu-promotions-phase-4` |
+ | 185 | Kitchen & delivery — worker access | **Applied on staging per owner report**; not independently queried; rollback + staging-only cleanup exist | `feat/phase-0-1-kitchen-worker-access` |
+ | 186 | Kitchen & delivery — couriers | **Applied and verified on staging per owner report**; rollback + staging cleanup + pre/post-checks + two-tab claim-race SQL exist | `feat/phase-2-couriers` |
+-| 187+ | unassigned | free as of 2026-10-21 | — |
++| 187 | Kitchen & delivery — cook performance | **Owner-reported applied**; authored forward + rollback files exist; not independently queried | `feat/phase-2-couriers` |
++| 188 | Evergreen Envelope RSVP | Authored forward + rollback; **NOT applied**; owner will apply to staging | `feat/phase-2-couriers` |
++| 189+ | unassigned | free as of 2026-10-21 | — |
+ | **next** | **Table & Menu QR Codes** (planned) | **Number assigned at build time from this register**; before writing, read migration 185 (kitchen/delivery) to learn whether a dine-in type, table fields or confirmation states already exist | unassigned — see `docs/phases/phase-table-menu-qr-codes.md` |
+ 
+ ---
+diff --git a/lib/__tests__/invitation-page-phase3.test.cjs b/lib/__tests__/invitation-page-phase3.test.cjs
+index cd67fee..b7ba779 100644
+--- a/lib/__tests__/invitation-page-phase3.test.cjs
++++ b/lib/__tests__/invitation-page-phase3.test.cjs
+@@ -1127,7 +1127,7 @@ describe("Invitation template registry and configuration contract", () => {
+     assert.deepEqual(envelope.requiredBlockTypes, [
+       "interactive_envelope", "romantic_hero", "countdown", "story", "schedule", "location_map",
+     ]);
+-    assert.equal(Object.keys(INVITATION_TEMPLATE_REGISTRY).length, 8);
++    assert.equal(Object.keys(INVITATION_TEMPLATE_REGISTRY).length, 9);
+     assert.equal(getInvitationTemplateDefinition("unregistered-template"), undefined);
+   });
+ 
+@@ -1212,7 +1212,7 @@ describe("Invitation template registry and configuration contract", () => {
+   test("custom compositions are explicitly allowlisted and standard templates keep block composition", () => {
+     const definitions = Object.values(INVITATION_TEMPLATE_REGISTRY);
+     const custom = definitions.filter((definition) => definition.pageRenderer.kind === "custom");
+-    assert.deepEqual(custom.map((definition) => definition.id), ["romantic-envelope", "botanical-reverie", "luxe-editorial"]);
++    assert.deepEqual(custom.map((definition) => definition.id), ["romantic-envelope", "botanical-reverie", "evergreen-envelope", "luxe-editorial"]);
+     assert.equal(definitions.filter((definition) => definition.pageRenderer.kind === "blocks").length, 5);
+ 
+     const rendererRegistry = fs.readFileSync(
+@@ -1223,6 +1223,8 @@ describe("Invitation template registry and configuration contract", () => {
+     assert.ok(rendererRegistry.includes('import("@/components/invitation/templates/romantic-envelope/RomanticEnvelopePageTemplate")'));
+     assert.ok(rendererRegistry.includes('"botanical-reverie": lazy(() =>'));
+     assert.ok(rendererRegistry.includes('import("@/components/invitation/templates/botanical-reverie/BotanicalReveriePageTemplate")'));
++    assert.ok(rendererRegistry.includes('"evergreen-envelope": lazy(() =>'));
++    assert.ok(rendererRegistry.includes('import("@/components/invitation/templates/evergreen-envelope/EvergreenEnvelopePageTemplate")'));
+     assert.ok(rendererRegistry.includes('import("@/components/invitation/templates/luxe-editorial/LuxeEditorialPageTemplate")'));
+     assert.ok(!rendererRegistry.includes("import(`@/components/invitation/templates/${"), "database IDs must not construct import paths");
+     assert.ok(rendererRegistry.includes("<Suspense fallback={fallback}>"));
+diff --git a/lib/__tests__/unified-invitation-templates.test.cjs b/lib/__tests__/unified-invitation-templates.test.cjs
+index 2d7c86d..9d95b1c 100644
+--- a/lib/__tests__/unified-invitation-templates.test.cjs
++++ b/lib/__tests__/unified-invitation-templates.test.cjs
+@@ -121,6 +121,7 @@ describe("unified registry: one selection, card + page", () => {
+       "royal-elegance": "wedding-romantic",
+       "romantic-envelope": "romantic-envelope",
+       "botanical-reverie": "botanical-reverie",
++      "evergreen-envelope": "evergreen-envelope",
+       "luxe-editorial": "luxe-editorial",
+       "festive-gold-noir": "birthday-bold",
+       "grand-gala-noir": "black-tie",
+diff --git a/lib/invitation-fonts.ts b/lib/invitation-fonts.ts
+index 15e592b..b8eb0d2 100644
+--- a/lib/invitation-fonts.ts
++++ b/lib/invitation-fonts.ts
+@@ -96,5 +96,12 @@ export async function loadInvitationFonts(fontFamilies: string[] = ["Cinzel", "P
+     );
+   }
+ 
++  // Great Vibes (SIL OFL 1.1) — script accent face for the Evergreen
++  // Envelope template card. Single 400 weight; no bold file ships.
++  if (requested.has("great vibes") || requested.has("greatvibes")) {
++    const greatVibes = await loadFontFile("GreatVibes-Regular.ttf");
++    fonts.push({ name: "Great Vibes", data: greatVibes, weight: 400, style: "normal" });
++  }
++
+   return fonts;
+ }
+diff --git a/lib/invitation-page-layout.ts b/lib/invitation-page-layout.ts
+index 0f31875..f8fd076 100644
+--- a/lib/invitation-page-layout.ts
++++ b/lib/invitation-page-layout.ts
+@@ -51,6 +51,14 @@ const PALETTE_BOTANICAL: ThemeUtilityPreset = {
+   heading: "text-[#263b31]",
+   body: "text-[#53665a]",
+ };
++const PALETTE_EVERGREEN: ThemeUtilityPreset = {
++  label: "Evergreen Envelope",
++  previewColors: ["#f7f5e9", "#48533a", "#a7b14b"],
++  page: "bg-[#f7f5e9] text-[#48533a]",
++  section: "bg-transparent",
++  heading: "text-[#48533a]",
++  body: "text-[#68705d]",
++};
+ const PALETTE_OCEAN: ThemeUtilityPreset = {
+     label: "Ocean Blue",
+     previewColors: ["#f0f9ff", "#082f49", "#0284c7"],
+@@ -113,6 +121,7 @@ export const COLOR_PALETTES: Record<string, ThemeUtilityPreset> = {
+   "palette-rose": PALETTE_ROSE,
+   "palette-emerald": PALETTE_EMERALD,
+   "palette-botanical": PALETTE_BOTANICAL,
++  "palette-evergreen": PALETTE_EVERGREEN,
+   "palette-ocean": PALETTE_OCEAN,
+   "palette-amber": PALETTE_AMBER,
+   "palette-slate": PALETTE_SLATE,
+@@ -134,12 +143,14 @@ export interface ThemeFontPack {
+   label: string;
+   heading: string;
+   body: string;
++  accent?: string;
+ }
+ 
+ /** Font pairings exposed by the typography pack picker. */
+ export const FONT_PACKS: Record<string, ThemeFontPack> = {
+   "font-serif-classic": { label: "Serif Elegant", heading: "font-serif", body: "font-serif" },
+   "font-serif-editorial": { label: "Editorial Serif", heading: "font-serif font-medium", body: "font-serif" },
++  "font-script": { label: "Evergreen Script Accent", heading: "font-serif font-medium", body: "font-serif", accent: "font-script" },
+   "font-sans-bold": { label: "Modern Bold", heading: "font-sans font-extrabold", body: "font-sans" },
+   "font-sans-clean": { label: "Clean Sans", heading: "font-sans font-semibold", body: "font-sans" },
+   "font-mono-editorial": { label: "Editorial Mono", heading: "font-mono font-bold", body: "font-mono" },
+@@ -190,7 +201,9 @@ export function legacyInvitationTemplateToLayout(
+ ): InvitationBlocksLayout {
+   const templateDefinition = getInvitationTemplateDefinition(templateId);
+   const hasSavedEffects = isRecord(savedLayout) && Array.isArray(savedLayout.effects);
+-  const isRomanticEnvelope = templateDefinition?.composition === "romantic-envelope" || templateDefinition?.composition === "botanical-reverie";
++  const isRomanticEnvelope = templateDefinition?.composition === "romantic-envelope"
++    || templateDefinition?.composition === "botanical-reverie"
++    || templateDefinition?.composition === "evergreen-envelope";
+   const blockCatalog: PageLayoutBlock[] = [
+     { id: "romantic-envelope-entry", type: "interactive_envelope", content: { enabled: true, transitionDurationMs: 1000 } },
+     {
+@@ -213,6 +226,9 @@ export function legacyInvitationTemplateToLayout(
+         dressCodeNotes: bind("dressCodeNotes"), additionalNotes: bind("additionalNotes"), venues: bind("venues"),
+         accommodations: bind("accommodations"), partner1Name: bind("partner1Name"), partner2Name: bind("partner2Name"),
+         familyNote: bind("familyNote"), weddingSubtype: bind("weddingSubtype"), colorsOfTheDay: bind("colorsOfTheDay"),
++        parentsLine: bind("parents_line"), dressCodeSwatches: bind("dress_code_swatches"),
++        adultsOnlyNote: bind("adults_only_note"), monogramInitials: bind("monogram_initials"),
++        albumUrl: bind("album_url"), showWishingWell: bind("show_wishing_well"), showAdultsOnly: bind("show_adults_only"),
+         registryNote: bind("registryNote"), celebrantName: bind("celebrantName"), ageMilestone: bind("ageMilestone"),
+         theme: bind("theme"), giftNote: bind("giftNote"), hashtag: bind("hashtag"),
+       },
+@@ -223,7 +239,14 @@ export function legacyInvitationTemplateToLayout(
+       content: { latitude: bind("latitude"), longitude: bind("longitude"), venue: bind("venue"), address: bind("address"), city: bind("city") },
+     },
+     { id: "invitation-schedule", type: "schedule", content: { timeline: bind("schedule") } },
+-    { id: "invitation-gallery", type: "gallery", content: { images: bind("gallery") } },
++    { id: "invitation-gallery", type: "gallery", content: {
++      images: bind("gallery"),
++      envelopePhoto: bind("envelope_photo_url"), coverPhoto: bind("cover_photo_url"),
++      polaroidPhotoOne: bind("polaroid_photo_one_url"), polaroidPhotoTwo: bind("polaroid_photo_two_url"),
++      storyPhotoOne: bind("story_photo_one_url"), storyPhotoTwo: bind("story_photo_two_url"),
++      closingPhoto: bind("closing_photo_url"), rsvpPhoto: bind("rsvp_photo_url"),
++      photoFocalPoints: bind("photo_focal_points"),
++    } },
+     { id: "invitation-music", type: "music", content: { audioUrl: bind("musicAudioUrl"), title: bind("musicTitle"), links: bind("musicLinks") } },
+     {
+       id: "invitation-action-portal", type: "action_portal",
+@@ -357,6 +380,22 @@ const BINDING_READERS: Record<InvitationBindingPath, (data: InvitationPageData)
+   theme: (data) => data.theme,
+   giftNote: (data) => data.giftNote,
+   hashtag: (data) => data.hashtag,
++  parents_line: (data) => data.parentsLine,
++  dress_code_swatches: (data) => data.dressCodeSwatches,
++  adults_only_note: (data) => data.adultsOnlyNote,
++  monogram_initials: (data) => data.monogramInitials,
++  album_url: (data) => data.albumUrl,
++  show_wishing_well: (data) => data.showWishingWell,
++  show_adults_only: (data) => data.showAdultsOnly,
++  envelope_photo_url: (data) => data.envelopePhoto,
++  cover_photo_url: (data) => data.coverPhoto,
++  polaroid_photo_one_url: (data) => data.polaroidPhotoOne,
++  polaroid_photo_two_url: (data) => data.polaroidPhotoTwo,
++  story_photo_one_url: (data) => data.storyPhotoOne,
++  story_photo_two_url: (data) => data.storyPhotoTwo,
++  closing_photo_url: (data) => data.closingPhoto,
++  rsvp_photo_url: (data) => data.rsvpPhoto,
++  photo_focal_points: (data) => data.photoFocalPoints,
+   "guest.name": (data) => data.guest.name,
+   "guest.title": (data) => data.guest.title,
+   "guest.organization": (data) => data.guest.organization,
+diff --git a/lib/invitation-page-schema.ts b/lib/invitation-page-schema.ts
+index f4a07e6..05494ec 100644
+--- a/lib/invitation-page-schema.ts
++++ b/lib/invitation-page-schema.ts
+@@ -12,6 +12,7 @@ import { MAX_MUSIC_LINKS, validateMusicLink } from "@/lib/invitation-music-links
+ import { normalizeInvitationColorHex } from "@/lib/invitation-colors";
+ import { InvitationBlocksLayoutSchema } from "@/lib/invitation-template-schema";
+ import { getInvitationTemplateDefinition } from "@/lib/invitation-template-registry";
++import { isValidStorageImageUrl } from "@/lib/invitation-image-url";
+ 
+ // Helpers for safe URLs
+ const HTTP_OR_HTTPS_REGEX = /^https?:\/\/.+/i;
+@@ -22,18 +23,7 @@ export function isValidHttpUrl(url: string | null | undefined): boolean {
+   return HTTP_OR_HTTPS_REGEX.test(url.trim());
+ }
+ 
+-export function isValidStorageImageUrl(url: string | null | undefined): boolean {
+-  if (!url || typeof url !== "string") return false;
+-  const trimmed = url.trim();
+-  // Allow project storage public URL, relative project paths (/images/...), or standard data URLs if needed
+-  return (
+-    trimmed.includes("/storage/v1/object/public/cms-media/") ||
+-    trimmed.includes("/storage/v1/object/public/event-banners/") ||
+-    trimmed.startsWith("/images/") ||
+-    trimmed.startsWith("http://") ||
+-    trimmed.startsWith("https://")
+-  );
+-}
++export { isValidStorageImageUrl } from "@/lib/invitation-image-url";
+ 
+ export function isValidStorageAudioUrl(url: string | null | undefined): boolean {
+   if (!url || typeof url !== "string") return false;
+@@ -71,6 +61,7 @@ export const ScheduleItemSchema = z.object({
+   badge: z.string().max(40, "Badge must be at most 40 characters").optional().nullable(),
+   day: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
+   dayLabel: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
++  icon: z.enum(["dining", "champagne", "cake", "dancing", "gift"]).optional().nullable(),
+ }).refine((item) => Boolean(item.title || item.label), {
+   message: "Event title is required",
+   path: ["title"],
+@@ -89,6 +80,13 @@ export const VenueItemSchema = z.object({
+   label: z.string().min(1, "Venue label is required (e.g. Ceremony)").max(30, "Label must be at most 30 characters"),
+   name: z.string().min(1, "Venue name is required").max(150, "Name must be at most 150 characters"),
+   address: z.string().max(200, "Address must be at most 200 characters").optional().nullable(),
++  time: z.string().max(40, "Venue time must be at most 40 characters").optional().nullable(),
++  mapUrl: z.string().max(500, "Map URL must be at most 500 characters")
++    .url("Map URL must be a valid HTTPS URL")
++    .refine((value) => {
++      try { return new URL(value).protocol === "https:"; } catch { return false; }
++    }, "Map URL must use HTTPS")
++    .optional().nullable(),
+   latitude: z.number().optional().nullable(),
+   longitude: z.number().optional().nullable(),
+ });
+diff --git a/lib/invitation-publish-nav.ts b/lib/invitation-publish-nav.ts
+index f2bd3b2..92497a3 100644
+--- a/lib/invitation-publish-nav.ts
++++ b/lib/invitation-publish-nav.ts
+@@ -14,6 +14,8 @@ export type BuilderSectionId =
+   | "story"
+   | "details"
+   | "gallery"
++  | "evergreen"
++  | "photos"
+   | "music"
+   | "extras"
+   | "publish";
+@@ -29,6 +31,7 @@ const EXACT_FIELD_SECTIONS: Record<string, BuilderSectionId> = {
+ };
+ 
+ const PREFIX_SECTION_RULES: { prefix: string; section: BuilderSectionId }[] = [
++  { prefix: "blocks_layout", section: "photos" },
+   { prefix: "hero_image", section: "hero" },
+   { prefix: "story_", section: "story" },
+   { prefix: "scroll_prompt", section: "hero" },
+@@ -59,6 +62,10 @@ const PREFIX_SECTION_RULES: { prefix: string; section: BuilderSectionId }[] = [
+ ];
+ 
+ export function sectionForPublishField(field: string): BuilderSectionId {
++  if (field.startsWith("blocks_layout.template_data.")) {
++    const key = field.split(".")[2];
++    return key?.includes("photo") || key === "photo_focal_points" ? "photos" : "evergreen";
++  }
+   if (EXACT_FIELD_SECTIONS[field]) return EXACT_FIELD_SECTIONS[field];
+   const base = field.split(".")[0];
+   if (EXACT_FIELD_SECTIONS[base]) return EXACT_FIELD_SECTIONS[base];
+diff --git a/lib/invitation-template-preview-data.ts b/lib/invitation-template-preview-data.ts
+index 3678af2..d0ecabb 100644
+--- a/lib/invitation-template-preview-data.ts
++++ b/lib/invitation-template-preview-data.ts
+@@ -2,6 +2,8 @@ import type { InvitationPageData } from "@/types/invitation-template";
+ import {
+   BOTANICAL_REVERIE_SAMPLE_DATA,
+   BIRTHDAY_INVITATION_SAMPLE_DATA,
++  EVERGREEN_ENVELOPE_SAMPLE_DATA,
++  EVERGREEN_ENVELOPE_SAMPLE_DATA_FR,
+   FULL_INVITATION_SAMPLE_DATA,
+   WEDDING_INVITATION_SAMPLE_DATA,
+ } from "@/components/invitation/templates/invitation-sample-data";
+@@ -9,6 +11,7 @@ import { assembleInvitationPageData, type EventLiveFields, type InvitationPageSn
+ import { SAMPLE_PREVIEW_GUEST, SAMPLE_PREVIEW_TICKET } from "@/lib/invitation-preview-channel";
+ 
+ const SAMPLE_DATA_BY_TEMPLATE: Record<string, InvitationPageData> = {
++  "evergreen-envelope": EVERGREEN_ENVELOPE_SAMPLE_DATA,
+   "botanical-reverie": BOTANICAL_REVERIE_SAMPLE_DATA,
+   "luxe-editorial": WEDDING_INVITATION_SAMPLE_DATA,
+   "wedding-romantic": WEDDING_INVITATION_SAMPLE_DATA,
+@@ -52,7 +55,9 @@ export function mergeInvitationTemplatePreviewData(
+   templateId: string,
+   realData: InvitationPageData
+ ): InvitationTemplatePreviewData {
+-  const sample = SAMPLE_DATA_BY_TEMPLATE[templateId] ?? FULL_INVITATION_SAMPLE_DATA;
++  const sample = templateId === "evergreen-envelope" && realData.locale === "fr"
++    ? EVERGREEN_ENVELOPE_SAMPLE_DATA_FR
++    : SAMPLE_DATA_BY_TEMPLATE[templateId] ?? FULL_INVITATION_SAMPLE_DATA;
+   const data: Record<string, unknown> = { ...realData };
+   const sampleFields: string[] = [];
+   const hasMusicLink = Array.isArray(data.musicLinks) && data.musicLinks.length > 0;
+@@ -73,7 +78,8 @@ export function mergeInvitationTemplatePreviewData(
+   return { data: data as unknown as InvitationPageData, sampleFields };
+ }
+ 
+-export function getInvitationTemplateSampleData(templateId: string): InvitationPageData {
++export function getInvitationTemplateSampleData(templateId: string, locale: "en" | "fr" = "en"): InvitationPageData {
++  if (templateId === "evergreen-envelope" && locale === "fr") return EVERGREEN_ENVELOPE_SAMPLE_DATA_FR;
+   return SAMPLE_DATA_BY_TEMPLATE[templateId] ?? FULL_INVITATION_SAMPLE_DATA;
+ }
+ 
+diff --git a/lib/invitation-template-registry.ts b/lib/invitation-template-registry.ts
+index f85cc80..bacd968 100644
+--- a/lib/invitation-template-registry.ts
++++ b/lib/invitation-template-registry.ts
+@@ -56,7 +56,7 @@ export type InvitationEffectConfig =
+   | { type: "scroll-reveal"; enabled: boolean; durationMs: number }
+   | { type: "falling-petals"; enabled: boolean; density: number };
+ 
+-export type CustomInvitationPageComponentId = "romantic-envelope" | "botanical-reverie" | "luxe-editorial";
++export type CustomInvitationPageComponentId = "romantic-envelope" | "botanical-reverie" | "luxe-editorial" | "evergreen-envelope";
+ export type InvitationPageRenderer =
+   | { kind: "blocks" }
+   | { kind: "custom"; componentId: CustomInvitationPageComponentId };
+@@ -80,6 +80,10 @@ export const INVITATION_BINDING_PATHS = [
+   "guest.title", "guest.organization", "guest.rsvpStatus", "guest.rsvpAt", "guest.isVip", "seat.label",
+   "seat.tableNumber", "seat.tableName", "seat.isVip", "ticketInstance.qrCode", "ticketInstance.status",
+   "ticketInstance.checkedInAt", "token",
++  "parents_line", "dress_code_swatches", "adults_only_note", "monogram_initials", "album_url",
++  "show_wishing_well", "show_adults_only", "envelope_photo_url", "cover_photo_url",
++  "polaroid_photo_one_url", "polaroid_photo_two_url", "story_photo_one_url", "story_photo_two_url",
++  "closing_photo_url", "rsvp_photo_url", "photo_focal_points",
+ ] as const;
+ 
+ export type InvitationBindingPath = (typeof INVITATION_BINDING_PATHS)[number];
+@@ -100,7 +104,7 @@ export interface InvitationTemplateDefinition {
+   detailsPresentation: InvitationDetailsPresentation;
+   /** Optional image composition for the shared, data-bound gallery block. */
+   galleryPresentation?: InvitationGalleryPresentation;
+-  composition: "standard" | "romantic-envelope" | "botanical-reverie";
++  composition: "standard" | "romantic-envelope" | "botanical-reverie" | "evergreen-envelope";
+   defaultBlockTypes: readonly InvitationBlockType[];
+   supportedBlockTypes: readonly InvitationBlockType[];
+   /** Blocks restored when a legacy/saved layout omitted a required section. */
+@@ -208,6 +212,25 @@ export const INVITATION_TEMPLATE_REGISTRY = {
+       { type: "falling-petals", enabled: true, density: 4 },
+     ],
+   },
++  "evergreen-envelope": {
++    id: "evergreen-envelope", version: "1.0.0", name: "Evergreen Envelope", category: "wedding",
++    categoryLabel: "Wedding", description: "An olive and cream envelope reveal with layered photo stationery and wedding details.",
++    publicationStatus: "published", preview: { kind: "rendered-sample", sampleId: "evergreen-envelope" },
++    defaultThemePreset: "evergreen", detailsPresentation: "botanical", galleryPresentation: "botanical", composition: "evergreen-envelope",
++    pageRenderer: { kind: "custom", componentId: "evergreen-envelope" },
++    defaultBlockTypes: [
++      "interactive_envelope", "romantic_hero", "countdown", "story", "details", "schedule",
++      "location_map", "gallery", "music", "action_portal",
++    ],
++    supportedBlockTypes: ROMANTIC_SUPPORTED_BLOCKS,
++    requiredBlockTypes: ["interactive_envelope", "romantic_hero", "countdown", "story", "details", "schedule", "location_map"],
++    supportedCustomizations: STANDARD_CUSTOMIZATIONS,
++    supportedEffects: ["envelope-reveal", "scroll-reveal"],
++    defaultEffects: [
++      { type: "envelope-reveal", enabled: true, transitionDurationMs: 1000 },
++      { type: "scroll-reveal", enabled: true, durationMs: 650 },
++    ],
++  },
+   "birthday-bold": {
+     id: "birthday-bold", version: "1.0.0", name: "Bold Celebration", category: "birthday",
+     categoryLabel: "Birthday Celebration", description: "Joyful bright color blocks, tilted sticker frames, polaroid gallery, and chunky party cards.",
+diff --git a/lib/invitation-template-schema.ts b/lib/invitation-template-schema.ts
+index 8ded492..92cb16d 100644
+--- a/lib/invitation-template-schema.ts
++++ b/lib/invitation-template-schema.ts
+@@ -1,6 +1,7 @@
+ /** Invitation-only validation layered over the shared business/page envelope. */
+ import { z } from "zod";
+ import { isRecord, PageBlocksLayoutSchema } from "@/lib/page-composition";
++import { isValidCmsMediaPublicImageUrl } from "@/lib/invitation-image-url";
+ import {
+   INVITATION_DETAILS_PRESENTATIONS,
+   INVITATION_BINDING_PATHS,
+@@ -111,6 +112,67 @@ const InvitationEffectSchema = z.discriminatedUnion("type", [
+   }).strict(),
+ ]);
+ 
++const CmsMediaPhotoSchema = z.string().max(1200).refine(
++  isValidCmsMediaPublicImageUrl,
++  "Evergreen photos must use an HTTPS public cms-media URL.",
++).nullable().optional();
++
++const FocalPointSchema = z.object({
++  x: z.number().int().min(0).max(100),
++  y: z.number().int().min(0).max(100),
++}).strict();
++
++const EvergreenEnvelopeTemplateDataSchema = z.object({
++  show_gate: z.boolean().optional(),
++  show_cover: z.boolean().optional(),
++  show_invitation_card: z.boolean().optional(),
++  show_countdown_photos: z.boolean().optional(),
++  show_venues: z.boolean().optional(),
++  show_schedule: z.boolean().optional(),
++  show_dress_code: z.boolean().optional(),
++  show_story: z.boolean().optional(),
++  show_accommodations_photos: z.boolean().optional(),
++  show_closing_photo: z.boolean().optional(),
++  show_rsvp: z.boolean().optional(),
++  show_location_map: z.boolean().optional(),
++  gate_intro: z.string().max(200).nullable().optional(),
++  gate_heading: z.string().max(100).nullable().optional(),
++  invitation_line: z.string().max(200).nullable().optional(),
++  venues_heading: z.string().max(100).nullable().optional(),
++  wishing_well_note: z.string().max(500).nullable().optional(),
++  story_forever_word: z.string().max(40).nullable().optional(),
++  closing_caption: z.string().max(200).nullable().optional(),
++  rsvp_intro: z.string().max(500).nullable().optional(),
++  parents_line: z.string().max(200).nullable().optional(),
++  dress_code_swatches: z.array(z.object({
++    name: z.string().max(30).nullable().optional(),
++    hex: z.string().regex(/^#?[0-9a-fA-F]{6}$/),
++  }).strict()).max(5).nullable().optional(),
++  adults_only_note: z.string().max(300).nullable().optional(),
++  monogram_initials: z.string().max(8).nullable().optional(),
++  album_url: z.string().max(500).url().nullable().optional(),
++  show_wishing_well: z.boolean().optional(),
++  show_adults_only: z.boolean().optional(),
++  envelope_photo_url: CmsMediaPhotoSchema,
++  cover_photo_url: CmsMediaPhotoSchema,
++  polaroid_photo_one_url: CmsMediaPhotoSchema,
++  polaroid_photo_two_url: CmsMediaPhotoSchema,
++  story_photo_one_url: CmsMediaPhotoSchema,
++  story_photo_two_url: CmsMediaPhotoSchema,
++  closing_photo_url: CmsMediaPhotoSchema,
++  rsvp_photo_url: CmsMediaPhotoSchema,
++  photo_focal_points: z.object({
++    envelope_photo_url: FocalPointSchema.optional(),
++    cover_photo_url: FocalPointSchema.optional(),
++    polaroid_photo_one_url: FocalPointSchema.optional(),
++    polaroid_photo_two_url: FocalPointSchema.optional(),
++    story_photo_one_url: FocalPointSchema.optional(),
++    story_photo_two_url: FocalPointSchema.optional(),
++    closing_photo_url: FocalPointSchema.optional(),
++    rsvp_photo_url: FocalPointSchema.optional(),
++  }).strict().nullable().optional(),
++}).strict();
++
+ /**
+  * Versioned JSON configuration accepted for invitation pages. The generic
+  * PageBlocksLayoutSchema remains broader for business-site block adapters.
+@@ -119,6 +181,7 @@ export const InvitationBlocksLayoutSchema = PageBlocksLayoutSchema
+   .extend({
+     layout_blocks: z.array(InvitationBlockSchema).max(120),
+     effects: z.array(InvitationEffectSchema).max(INVITATION_EFFECT_TYPES.length).optional(),
++    template_data: EvergreenEnvelopeTemplateDataSchema.optional(),
+   })
+   .superRefine((layout, ctx) => {
+     const effectTypes = new Set<string>();
+diff --git a/lib/invitation-type-fields.ts b/lib/invitation-type-fields.ts
+index cb09cd8..982cf0f 100644
+--- a/lib/invitation-type-fields.ts
++++ b/lib/invitation-type-fields.ts
+@@ -46,6 +46,7 @@ export const TEMPLATE_CATEGORY_BY_ID: Record<string, TemplateCategory> = {
+   "wedding-romantic": "wedding",
+   "romantic-envelope": "wedding",
+   "botanical-reverie": "wedding",
++  "evergreen-envelope": "wedding",
+   "luxe-editorial": "wedding",
+   "birthday-bold": "birthday",
+   cover: "universal",
+@@ -171,5 +172,19 @@ export function hiddenContentOnTemplateSwitch(
+       hidden.push(TYPE_FIELD_LABELS[key]);
+     }
+   }
++  if (fromTemplateId === "evergreen-envelope" && toTemplateId !== "evergreen-envelope") {
++    const blocksLayout = draft.blocks_layout;
++    const templateData = typeof blocksLayout === "object" && blocksLayout !== null
++      ? (blocksLayout as Record<string, unknown>).template_data
++      : null;
++    if (typeof templateData === "object" && templateData !== null && !Array.isArray(templateData)) {
++      const hasEvergreenContent = Object.entries(templateData as Record<string, unknown>).some(([key, value]) =>
++        key === "show_wishing_well" || key === "show_adults_only"
++          ? value === true
++          : hasContent(value)
++      );
++      if (hasEvergreenContent) hidden.push("Evergreen details and photos");
++    }
++  }
+   return hidden;
+ }
+diff --git a/lib/invitations.ts b/lib/invitations.ts
+index e55b6a9..8e7214b 100644
+--- a/lib/invitations.ts
++++ b/lib/invitations.ts
+@@ -9,6 +9,19 @@ import { randomBytes, randomUUID } from "crypto";
+ import { createSupabaseAdmin } from "@/lib/supabase-admin";
+ import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
+ import { buildInvitationCardImageUrl } from "@/lib/invitation-card-url";
++import {
++  GUEST_INVITATION_SELECT_WITH_OPTIONAL,
++  GuestInvitationColumnsUnavailableError,
++  isMissingGuestInvitationColumnsError,
++  LEGACY_GUEST_INVITATION_SELECT,
++  withEmptyGuestInvitationColumns,
++} from "@/lib/guest-invitation-columns";
++import {
++  buildRsvpInvitationUpdate,
++  InvitationNotFoundError,
++  normalizeRsvpDetails,
++  type InvitationRsvpResponse,
++} from "@/lib/invitation-rsvp";
+ 
+ export type InvitationStatus = "draft" | "sent" | "cancelled" | "revoked" | "expired";
+ export type RsvpStatus = "pending" | "accepted" | "declined";
+@@ -21,6 +34,7 @@ export interface CreateInvitationParams {
+   email?: string | null;
+   phone?: string | null;
+   notes?: string | null;
++  guestAllowance?: number | null;
+   createdBy?: string | null;
+ }
+ 
+@@ -37,6 +51,10 @@ export interface InvitationResult {
+     invitation_status: InvitationStatus;
+     rsvp_status: RsvpStatus;
+     rsvp_at: string | null;
++    guest_allowance: number | null;
++    rsvp_guest_count: number | null;
++    rsvp_guest_names: string | null;
++    rsvp_message: string | null;
+     notes: string | null;
+     created_at: string;
+   };
+@@ -64,24 +82,38 @@ export async function createInvitationCredential(
+   const qrCode = randomUUID().replace(/-/g, "").toUpperCase();
+ 
+   // 3. Insert event_invitations row
+-  const { data: invitation, error: inviteErr } = await admin
+-    .from("event_invitations")
+-    .insert({
+-      event_id: params.eventId,
+-      guest_name: params.guestName.trim(),
+-      guest_title: params.guestTitle?.trim() || null,
+-      organization: params.organization?.trim() || null,
+-      email: params.email?.trim().toLowerCase() || null,
+-      phone: params.phone?.trim() || null,
+-      token,
+-      invitation_status: "draft",
+-      rsvp_status: "pending",
+-      notes: params.notes?.trim() || null,
+-      created_by: params.createdBy || null,
+-    })
+-    .select()
++  const invitationValues = {
++    event_id: params.eventId,
++    guest_name: params.guestName.trim(),
++    guest_title: params.guestTitle?.trim() || null,
++    organization: params.organization?.trim() || null,
++    email: params.email?.trim().toLowerCase() || null,
++    phone: params.phone?.trim() || null,
++    token,
++    invitation_status: "draft",
++    rsvp_status: "pending",
++    notes: params.notes?.trim() || null,
++    created_by: params.createdBy || null,
++  };
++
++  const invitationTable = (admin as any).from("event_invitations");
++  let { data: invitation, error: inviteErr } = await invitationTable
++    .insert({ ...invitationValues, guest_allowance: params.guestAllowance ?? null })
++    .select(`${GUEST_INVITATION_SELECT_WITH_OPTIONAL}, token`)
+     .single();
+ 
++  if (inviteErr && isMissingGuestInvitationColumnsError(inviteErr)) {
++    if (params.guestAllowance != null) throw new GuestInvitationColumnsUnavailableError();
++    const fallback = await invitationTable
++      .insert(invitationValues)
++      .select(`${LEGACY_GUEST_INVITATION_SELECT}, token`)
++      .single();
++    invitation = fallback.data
++      ? withEmptyGuestInvitationColumns(fallback.data) as unknown as typeof invitation
++      : null;
++    inviteErr = fallback.error;
++  }
++
+   if (inviteErr || !invitation) {
+     throw new Error(`Failed to create event invitation: ${inviteErr?.message || "Unknown error"}`);
+   }
+@@ -181,9 +213,27 @@ export async function getInvitationByToken(token: string) {
+   };
+ }
+ 
++/** Fetch only the personalized Evergreen count cap; OG and shared views omit it. */
++export async function getInvitationGuestAllowanceByToken(token: string): Promise<number | null> {
++  if (!token || typeof token !== "string" || token.length !== 64) return null;
++
++  const admin = createSupabaseAdmin();
++  const { data, error } = await (admin as any)
++    .from("event_invitations")
++    .select("guest_allowance")
++    .eq("token", token)
++    .maybeSingle();
++
++  if (error || !data || typeof data.guest_allowance !== "number") return null;
++  return data.guest_allowance;
++}
++
+ export interface RsvpInvitationParams {
+   token: string;
+-  response: "accepted" | "declined";
++  response: InvitationRsvpResponse;
++  guestCount?: number;
++  guestNames?: string;
++  message?: string;
+ }
+ 
+ export interface RsvpInvitationResult {
+@@ -215,14 +265,17 @@ export async function rsvpInvitation(
+   // 1. Fetch invitation by token
+   const { data: invitation, error: invErr } = await admin
+     .from("event_invitations")
+-    .select("id, event_id, invitation_status, rsvp_status, rsvp_at")
++    .select("id, event_id, invitation_status, rsvp_status, rsvp_at, guest_allowance")
+     .eq("token", token)
+     .maybeSingle();
+ 
+   if (invErr || !invitation) {
+-    throw new Error("Invitation not found.");
++    throw new InvitationNotFoundError();
+   }
+ 
++  const guestAllowance = (invitation as { guest_allowance?: number | null }).guest_allowance ?? null;
++  const details = normalizeRsvpDetails(response, params, guestAllowance);
++
+   if (["cancelled", "revoked", "expired"].includes(invitation.invitation_status)) {
+     throw new Error(`This invitation is ${invitation.invitation_status} and cannot be updated.`);
+   }
+@@ -243,11 +296,7 @@ export async function rsvpInvitation(
+   // 3. Update RSVP status
+   const { error: updateErr } = await admin
+     .from("event_invitations")
+-    .update({
+-      rsvp_status: response,
+-      rsvp_at: now,
+-      updated_at: now,
+-    })
++    .update(buildRsvpInvitationUpdate(response, details, now))
+     .eq("id", invitation.id);
+ 
+   if (updateErr) {
+@@ -705,6 +754,7 @@ export interface UpdateInvitationGuestParams {
+   email?: string | null;
+   phone?: string | null;
+   notes?: string | null;
++  guestAllowance?: number | null;
+ }
+ 
+ /**
+@@ -727,15 +777,32 @@ export async function updateInvitationGuest(params: UpdateInvitationGuestParams)
+   if (params.email !== undefined) updates.email = params.email?.trim().toLowerCase() || null;
+   if (params.phone !== undefined) updates.phone = params.phone?.trim() || null;
+   if (params.notes !== undefined) updates.notes = params.notes?.trim() || null;
++  if (params.guestAllowance !== undefined) updates.guest_allowance = params.guestAllowance;
+ 
+-  const { data: updated, error } = await admin
+-    .from("event_invitations")
++  const invitationTable = (admin as any).from("event_invitations");
++  let { data: updated, error } = await invitationTable
+     .update(updates)
+     .eq("id", params.invitationId)
+     .eq("event_id", params.eventId)
+-    .select("id, event_id, guest_name, guest_title, organization, email, phone, invitation_status, rsvp_status, notes, updated_at")
++    .select(GUEST_INVITATION_SELECT_WITH_OPTIONAL)
+     .single();
+ 
++  if (error && isMissingGuestInvitationColumnsError(error)) {
++    if (params.guestAllowance != null) throw new GuestInvitationColumnsUnavailableError();
++    const fallbackUpdates = { ...updates };
++    delete fallbackUpdates.guest_allowance;
++    const fallback = await invitationTable
++      .update(fallbackUpdates)
++      .eq("id", params.invitationId)
++      .eq("event_id", params.eventId)
++      .select(LEGACY_GUEST_INVITATION_SELECT)
++      .single();
++    updated = fallback.data
++      ? withEmptyGuestInvitationColumns(fallback.data) as unknown as typeof updated
++      : null;
++    error = fallback.error;
++  }
++
+   if (error || !updated) {
+     throw new Error(`Failed to update guest information: ${error?.message || "Not found"}`);
+   }
+diff --git a/lib/page-actions.ts b/lib/page-actions.ts
+index dac738b..7a1bedd 100644
+--- a/lib/page-actions.ts
++++ b/lib/page-actions.ts
+@@ -1,5 +1,25 @@
+ export type PageActionPayload =
+-  | { actionType: "RSVP_SUBMISSION"; response: "accepted" | "declined" }
++  | {
++      actionType: "RSVP_SUBMISSION";
++      response: "accepted" | "declined";
++      guestCount?: number;
++      guestNames?: string;
++      message?: string;
++    }
+   | { actionType: "BUSINESS_LEAD"; name: string; email: string; message: string };
+ 
++export function buildRsvpSubmissionPayload(
++  response: "accepted" | "declined",
++  details?: { guestCount?: number; guestNames?: string; message?: string },
++): PageActionPayload {
++  const payload: Extract<PageActionPayload, { actionType: "RSVP_SUBMISSION" }> = {
++    actionType: "RSVP_SUBMISSION",
++    response,
++  };
++  if (details?.guestCount !== undefined) payload.guestCount = details.guestCount;
++  if (details?.guestNames !== undefined) payload.guestNames = details.guestNames;
++  if (details?.message !== undefined) payload.message = details.message;
++  return payload;
++}
++
+ export type PageActionHandler = (payload: PageActionPayload) => Promise<unknown>;
+diff --git a/lib/page-composition.ts b/lib/page-composition.ts
+index 7afef15..fdeb9ff 100644
+--- a/lib/page-composition.ts
++++ b/lib/page-composition.ts
+@@ -64,6 +64,16 @@ export const PAGE_THEME_PRESETS = {
+       button: "bg-[#365746] text-[#fffdf7] hover:bg-[#284434]",
+     },
+   },
++  evergreen: {
++    classes: {
++      page: "min-h-screen bg-[#f7f5e9] text-[#48533a]",
++      section: "bg-transparent",
++      heading: "font-serif text-[#48533a]",
++      body: "font-serif text-[#68705d]",
++      card: "border border-[#d9ddc6] bg-[#fffdf4] shadow-sm",
++      button: "rounded-full bg-[#7d8b48] text-white hover:bg-[#69763a]",
++    },
++  },
+   birthday: {
+     classes: {
+       page: "min-h-screen bg-amber-50 text-zinc-950",
+@@ -324,5 +334,9 @@ export function themeForInvitationTemplate(templateId: string): PageGlobalTheme
+       palette_id: "palette-botanical",
+       font_pack_id: "font-serif-editorial",
+     } : {}),
++    ...(templateId === "evergreen-envelope" ? {
++      palette_id: "palette-evergreen",
++      font_pack_id: "font-script",
++    } : {}),
+   };
+ }
+diff --git a/lib/security/__tests__/p1-generic-error-responses.test.cjs b/lib/security/__tests__/p1-generic-error-responses.test.cjs
+index 8d04d74..e1cc089 100644
+--- a/lib/security/__tests__/p1-generic-error-responses.test.cjs
++++ b/lib/security/__tests__/p1-generic-error-responses.test.cjs
+@@ -52,7 +52,6 @@ const ALLOW_RAW_MENTION = [
+   "app/api/qa/poll/route.ts:48", // audit temporary; console.error only; generic returned (server-only import shift)
+   "app/api/qa/ingest/route.ts:135", // audit temporary; console.error only; generic returned (Stage 15 import shift)
+   "app/api/cron/sentinel-sweep/route.ts:91", // audit temporary; console.error + audit; generic returned
+-  "app/api/invitation/[token]/rsvp/route.ts:42", // status-classification temporary; generic returned (Round 4 rate-limit shift)
+   "app/api/exec/claim/route.ts:70", // audit temporary; console.error only; generic returned (server-only import shift)
+   "app/api/exec/heartbeat/route.ts:57", // audit temporary; console.error only; generic returned (server-only import shift)
+   "app/api/exec/ingest/route.ts:77", // audit temporary; console.error only; generic returned (Stage 15 import shift)
+diff --git a/lib/types/invitation-page-snapshot.ts b/lib/types/invitation-page-snapshot.ts
+index 74dbbd2..ac41ec3 100644
+--- a/lib/types/invitation-page-snapshot.ts
++++ b/lib/types/invitation-page-snapshot.ts
+@@ -207,6 +207,7 @@ export interface GuestLiveRecord {
+   email?: string | null;
+   rsvp_status?: "pending" | "accepted" | "declined" | null;
+   rsvp_at?: string | null;
++  guest_allowance?: number | null;
+   token?: string | null;
+   is_vip?: boolean;
+ }
+@@ -239,6 +240,9 @@ export function assembleInvitationPageData(
+   ticketInstance?: TicketInstanceLiveRecord | null,
+   seat?: SeatLiveRecord | null
+ ): InvitationPageData {
++  const evergreen = snapshot.template_id === "evergreen-envelope"
++    ? snapshot.blocks_layout?.template_data
++    : undefined;
+   const effectiveTitle = snapshot.display_title?.trim() || event.title;
+   const effectiveVenue = snapshot.venue_name?.trim() || event.venue || "";
+   const effectiveAddress = snapshot.address?.trim() || event.street_address || undefined;
+@@ -250,6 +254,7 @@ export function assembleInvitationPageData(
+         organization: guest.organization ?? undefined,
+         rsvpStatus: guest.rsvp_status ?? "pending",
+         rsvpAt: guest.rsvp_at ?? undefined,
++        guestAllowance: guest.guest_allowance ?? null,
+         isVip: Boolean(guest.is_vip || seat?.is_vip),
+       }
+     : {
+@@ -347,6 +352,27 @@ export function assembleInvitationPageData(
+     })) ?? undefined,
+     weddingStory: snapshot.wedding_story ?? undefined,
+ 
++    parentsLine: evergreen?.parents_line ?? undefined,
++    dressCodeSwatches: evergreen?.dress_code_swatches ?? undefined,
++    adultsOnlyNote: evergreen?.adults_only_note ?? undefined,
++    monogramInitials: evergreen?.monogram_initials ?? undefined,
++    albumUrl: evergreen?.album_url ?? undefined,
++    showWishingWell: evergreen?.show_wishing_well,
++    showAdultsOnly: evergreen?.show_adults_only,
++    wishingWellNote: evergreen?.wishing_well_note ?? undefined,
++    storyForeverWord: evergreen?.story_forever_word ?? undefined,
++    closingCaption: evergreen?.closing_caption ?? undefined,
++    rsvpIntro: evergreen?.rsvp_intro ?? undefined,
++    envelopePhoto: evergreen?.envelope_photo_url ?? undefined,
++    coverPhoto: evergreen?.cover_photo_url ?? undefined,
++    polaroidPhotoOne: evergreen?.polaroid_photo_one_url ?? undefined,
++    polaroidPhotoTwo: evergreen?.polaroid_photo_two_url ?? undefined,
++    storyPhotoOne: evergreen?.story_photo_one_url ?? undefined,
++    storyPhotoTwo: evergreen?.story_photo_two_url ?? undefined,
++    closingPhoto: evergreen?.closing_photo_url ?? undefined,
++    rsvpPhoto: evergreen?.rsvp_photo_url ?? undefined,
++    photoFocalPoints: evergreen?.photo_focal_points ?? undefined,
++
+     guest: guestData,
+     seat: seatData,
+     ticketInstance: passData,
+diff --git a/lib/unified-invitation-templates.ts b/lib/unified-invitation-templates.ts
+index 131e6a4..9c1cfa8 100644
+--- a/lib/unified-invitation-templates.ts
++++ b/lib/unified-invitation-templates.ts
+@@ -69,6 +69,18 @@ export const UNIFIED_INVITATION_TEMPLATES: UnifiedInvitationTemplate[] = [
+     pageId: "botanical-reverie",
+     blurb: "Layered garden stationery with an envelope reveal and editorial wedding details.",
+   },
++  // TODO: Revisit the share-preview card slug; Evergreen currently uses botanical-reverie.
++  {
++    id: "evergreen-envelope@1.0.0",
++    baseId: "evergreen-envelope",
++    name: "Evergreen Envelope",
++    nameKey: "unifiedEvergreenEnvelopeName",
++    categoryLabel: "Wedding & Formal",
++    occasion: "wedding",
++    cardSlug: "botanical-reverie",
++    pageId: "evergreen-envelope",
++    blurb: "An olive and cream envelope reveal with layered photo stationery and wedding details.",
++  },
+   {
+     id: "luxe-editorial@1.0.0",
+     baseId: "luxe-editorial",
+@@ -131,6 +143,7 @@ export const UNIFIED_TEMPLATE_NAME_KEYS = {
+   "royal-elegance": "unifiedRoyalEleganceName",
+   "romantic-envelope": "unifiedRomanticEnvelopeName",
+   "botanical-reverie": "unifiedBotanicalReverieName",
++  "evergreen-envelope": "unifiedEvergreenEnvelopeName",
+   "luxe-editorial": "unifiedLuxeEditorialName",
+   "festive-gold-noir": "unifiedFestiveGoldNoirName",
+   "grand-gala-noir": "unifiedGrandGalaNoirName",
+diff --git a/lib/workforce/__tests__/stage17-pass-one.test.cjs b/lib/workforce/__tests__/stage17-pass-one.test.cjs
+index a45edec..b582a9f 100644
+--- a/lib/workforce/__tests__/stage17-pass-one.test.cjs
++++ b/lib/workforce/__tests__/stage17-pass-one.test.cjs
+@@ -285,7 +285,7 @@ test("O-6 exec claims label manual; QA standing smoke keeps schedule", () => {
+ test("mocked: migration order current; guard untouched; writes conditional", () => {
+   const dbFiles = fs.readdirSync(require("node:path").join(harness.ROOT, "db")).filter((f) => /^migration_1\d\d_/.test(f) && !f.includes("rollback"));
+   const nums = dbFiles.map((f) => Number(f.match(/^migration_(\d+)_/)[1]));
+-  assert.equal(Math.max(...nums), 187, "migration 187 is the current latest migration");
++  assert.equal(Math.max(...nums), 188, "migration 188 is the current latest migration");
+   const approvals = fs.readFileSync(require("node:path").join(harness.ROOT, "lib/workforce/approvals.ts"), "utf8");
+   const guardStart = approvals.indexOf("export async function decideApproval");
+   const nextExport = approvals.indexOf("\nexport ", guardStart + 10);
+diff --git a/messages/en.json b/messages/en.json
+index 70a3ad4..f88836a 100644
+--- a/messages/en.json
++++ b/messages/en.json
+@@ -264,11 +264,13 @@
+     "unifiedCoverName": "Cover Story",
+     "unifiedRomanticEnvelopeName": "Romantic Envelope",
+     "unifiedBotanicalReverieName": "Botanical Reverie",
++    "unifiedEvergreenEnvelopeName": "Evergreen Envelope",
+     "unifiedRoyalEleganceName": "Aurora",
+     "unifiedFestiveGoldNoirName": "Confetti",
+     "unifiedGrandGalaNoirName": "Midnight",
+     "unifiedModernExecutiveName": "Atelier",
+     "unifiedLuxeEditorialName": "Luxe Editorial",
++    "unifiedEvergreenEnvelopeDescription": "Olive and cream garden stationery with an envelope reveal and eight personal photo frames.",
+     "unifiedCoverCategory": "Cover",
+     "unifiedCoverDescription": "Full-bleed photo with live text, card and page.",
+     "unifiedRoyalEleganceDescription": "Gold-on-ink card with a romantic blush page.",
+@@ -303,6 +305,7 @@
+     "invitationTypeFieldAgeMilestone": "Age milestone",
+     "invitationTypeFieldPartyTheme": "Party theme",
+     "invitationTypeFieldGiftNote": "Gift note",
++    "invitationTypeFieldEvergreenDetails": "Evergreen details and photos",
+     "invitationPreviewSampleLabel": "Sample",
+     "invitationPreviewGuestCaption": "Guest preview — sample guest, sample QR, no RSVP writes.",
+     "invitationPreviewLiveTitle": "Live invitation preview",
+@@ -317,6 +320,94 @@
+     "unifiedNoAvailableTemplates": "No complete card and page templates are available.",
+     "unifiedPagePreviewLoading": "Loading page preview…",
+     "invitationGalleryAddPhotos": "Add photos",
++    "evergreenPhotosGroup": "Photos",
++    "evergreenDetailsGroup": "Evergreen details",
++    "evergreenParentsLine": "Parents and hosts line",
++    "evergreenDressSwatches": "Dress-code colors",
++    "evergreenSwatchName": "Color name",
++    "evergreenSwatchesColorLabel": "Color {index}",
++    "evergreenSwatchAdd": "Add color",
++    "evergreenSwatchRemove": "Remove color",
++    "evergreenAdultsNote": "Adults-only note",
++    "evergreenMonogram": "Monogram initials",
++    "evergreenAlbumUrl": "Shared photo album link",
++    "evergreenWishingWellToggle": "Show the wishing-well card",
++    "evergreenAdultsOnlyToggle": "Show the adults-only card",
++    "evergreenSectionsVisible": "Sections shown on the invitation",
++    "evergreenShowGate": "Envelope gate",
++    "evergreenShowCover": "Photo cover",
++    "evergreenShowInvitationCard": "Invitation card",
++    "evergreenShowCountdownPhotos": "Photos and countdown",
++    "evergreenShowVenues": "Venue cards",
++    "evergreenGateIntroEditor": "Envelope intro line",
++    "evergreenGateHeadingEditor": "Envelope heading",
++    "evergreenInvitationLineEditor": "Invitation card message",
++    "evergreenVenuesHeadingEditor": "Venue section heading",
++    "evergreenGateIntro": "The most important day of our lives has arrived…",
++    "evergreenGateHeading": "WE’RE GETTING MARRIED!",
++    "evergreenGateAria": "Sealed invitation for {title}",
++    "evergreenClickHere": "click here",
++    "evergreenOpenInvitation": "Open the Evergreen Envelope invitation",
++    "evergreenReservedFor": "Reserved for",
++    "evergreenGuestAllowance": "{count} guests",
++    "evergreenMoreDetails": "More details",
++    "evergreenCoverEyebrow": "Our Wedding",
++    "evergreenInvitationHeading": "Wedding invitation",
++    "evergreenInvitationParentsFallback": "Together with their parents:",
++    "evergreenInvitationLine": "Have the honor of inviting you to celebrate their wedding.",
++    "evergreenCountdownIntro": "Love wrote our story, and we’ll celebrate its most beautiful chapter in:",
++    "evergreenVenuesHeading": "Our celebration",
++    "evergreenCeremony": "Ceremony",
++    "evergreenReception": "Reception",
++    "evergreenViewMap": "View map",
++    "evergreenPhotosHelp": "Upload a photo for each stationery frame. Every slot has its own crop focus; uploaded photos appear in the live preview.",
++    "evergreenPhotoHint": "Optional. Uploads are resized to 1600px and stored in Aldriva media.",
++    "evergreenPhotoEnvelope": "Envelope photo",
++    "evergreenPhotoCover": "Cover photo",
++    "evergreenPhotoPolaroidOne": "First polaroid",
++    "evergreenPhotoPolaroidTwo": "Second polaroid",
++    "evergreenPhotoStoryOne": "Story photo — first frame",
++    "evergreenPhotoStoryTwo": "Story photo — second frame",
++    "evergreenPhotoClosing": "Closing photo",
++    "evergreenPhotoRsvp": "RSVP card photo",
++    "evergreenScheduleIconLabel": "Schedule icon",
++    "evergreenScheduleIconNone": "Default icon",
++    "evergreenScheduleIconDining": "Plate and cutlery",
++    "evergreenScheduleIconChampagne": "Champagne glasses",
++    "evergreenScheduleIconCake": "Cake",
++    "evergreenScheduleIconDancing": "Dancing couple",
++    "evergreenScheduleIconGift": "Wishing well",
++    "evergreenVenueTime": "Venue time (optional)",
++    "evergreenVenueMapUrl": "Map URL (HTTPS, optional)",
++    "evergreenShowSchedule": "Show schedule",
++    "evergreenShowDressCode": "Show dress code",
++    "evergreenShowStory": "Show our story",
++    "evergreenShowAccommodationPhotos": "Show accommodations and album",
++    "evergreenShowClosingPhoto": "Show closing photo",
++    "evergreenShowRsvp": "Show RSVP card",
++    "evergreenShowLocationMap": "Also show the shared location map block (off by default)",
++    "evergreenWishingWellNote": "Wishing-well message",
++    "evergreenStoryForeverWord": "Story closing script word",
++    "evergreenClosingCaption": "Closing photo caption",
++    "evergreenRsvpIntro": "RSVP introduction",
++    "evergreenScheduleHeading": "The day",
++    "evergreenDressCodeHeading": "Dress code",
++    "evergreenWishingWellHeading": "Wishing well",
++    "evergreenAdultsOnlyHeading": "Adults only",
++    "evergreenStoryHeading": "Our story",
++    "evergreenAccommodationsHeading": "Accommodations",
++    "evergreenAlbumHeading": "Photos",
++    "evergreenReserveHere": "Reserve here",
++    "evergreenGoToAlbum": "Go to the album",
++    "evergreenForeverFallback": "forever",
++    "evergreenRsvpButton": "RSVP here",
++    "evergreenRsvpDialogLabel": "RSVP response form",
++    "evergreenRsvpClose": "Close RSVP form",
++    "evergreenRsvpFallback": "We are so excited to celebrate with you. Please RSVP by {date}.",
++    "evergreenWishingWellFallback": "Your presence is the greatest gift. If you wish, you may share a gift with us.",
++    "evergreenStoryPhotoAlt": "{names} together",
++    "evergreenAccommodationPhotoAlt": "{names} wedding portrait",
++    "evergreenMapUrlError": "Enter a secure HTTPS map link, or leave this blank to use a map search.",
+     "invitationGalleryRemainingHint": "You can add {remaining} more. Up to 12 photos total.",
+     "invitationGalleryQueued": "Waiting",
+     "invitationGalleryProcessing": "Preparing",
+diff --git a/messages/fr.json b/messages/fr.json
+index 7678171..c25e909 100644
+--- a/messages/fr.json
++++ b/messages/fr.json
+@@ -264,11 +264,13 @@
+     "unifiedCoverName": "En couverture",
+     "unifiedRomanticEnvelopeName": "Enveloppe romantique",
+     "unifiedBotanicalReverieName": "Rêverie botanique",
++    "unifiedEvergreenEnvelopeName": "Enveloppe Evergreen",
+     "unifiedRoyalEleganceName": "Aurore",
+     "unifiedFestiveGoldNoirName": "Confetti",
+     "unifiedGrandGalaNoirName": "Minuit",
+     "unifiedModernExecutiveName": "Atelier",
+     "unifiedLuxeEditorialName": "Éditorial de luxe",
++    "unifiedEvergreenEnvelopeDescription": "Papeterie de jardin ivoire et olive, avec ouverture d’enveloppe et huit cadres photo personnels.",
+     "unifiedCoverCategory": "Couverture",
+     "unifiedCoverDescription": "Photo plein cadre avec texte en direct, carte et page.",
+     "unifiedRoyalEleganceDescription": "Une carte dorée élégante avec une page aux tons romantiques.",
+@@ -303,6 +305,7 @@
+     "invitationTypeFieldAgeMilestone": "Âge marquant",
+     "invitationTypeFieldPartyTheme": "Thème de la fête",
+     "invitationTypeFieldGiftNote": "Note sur les cadeaux",
++    "invitationTypeFieldEvergreenDetails": "Détails et photos Evergreen",
+     "invitationPreviewSampleLabel": "Exemple",
+     "invitationPreviewGuestCaption": "Aperçu invité — invité exemple, code QR exemple, aucun enregistrement RSVP.",
+     "invitationPreviewLiveTitle": "Aperçu de l’invitation en direct",
+@@ -317,6 +320,94 @@
+     "unifiedNoAvailableTemplates": "Aucun modèle complet avec carte et page n’est disponible.",
+     "unifiedPagePreviewLoading": "Chargement de l’aperçu de la page…",
+     "invitationGalleryAddPhotos": "Ajouter des photos",
++    "evergreenPhotosGroup": "Photos",
++    "evergreenDetailsGroup": "Détails Evergreen",
++    "evergreenParentsLine": "Ligne des parents et hôtes",
++    "evergreenDressSwatches": "Couleurs de la tenue",
++    "evergreenSwatchName": "Nom de la couleur",
++    "evergreenSwatchesColorLabel": "Couleur {index}",
++    "evergreenSwatchAdd": "Ajouter une couleur",
++    "evergreenSwatchRemove": "Supprimer la couleur",
++    "evergreenAdultsNote": "Note réservée aux adultes",
++    "evergreenMonogram": "Initiales du monogramme",
++    "evergreenAlbumUrl": "Lien vers l’album photo partagé",
++    "evergreenWishingWellToggle": "Afficher la carte de vœux",
++    "evergreenAdultsOnlyToggle": "Afficher la carte réservée aux adultes",
++    "evergreenSectionsVisible": "Sections affichées sur l’invitation",
++    "evergreenShowGate": "Enveloppe d’ouverture",
++    "evergreenShowCover": "Couverture photo",
++    "evergreenShowInvitationCard": "Carte d’invitation",
++    "evergreenShowCountdownPhotos": "Photos et compte à rebours",
++    "evergreenShowVenues": "Cartes des lieux",
++    "evergreenGateIntroEditor": "Phrase d’introduction de l’enveloppe",
++    "evergreenGateHeadingEditor": "Titre de l’enveloppe",
++    "evergreenInvitationLineEditor": "Message de la carte d’invitation",
++    "evergreenVenuesHeadingEditor": "Titre de la section des lieux",
++    "evergreenGateIntro": "Le jour le plus important de notre vie est arrivé…",
++    "evergreenGateHeading": "NOUS NOUS MARIONS !",
++    "evergreenGateAria": "Invitation scellée pour {title}",
++    "evergreenClickHere": "cliquez ici",
++    "evergreenOpenInvitation": "Ouvrir l’invitation Evergreen Envelope",
++    "evergreenReservedFor": "Réservé à",
++    "evergreenGuestAllowance": "{count} invités",
++    "evergreenMoreDetails": "Détails",
++    "evergreenCoverEyebrow": "Notre mariage",
++    "evergreenInvitationHeading": "Invitation au mariage",
++    "evergreenInvitationParentsFallback": "Avec leurs parents :",
++    "evergreenInvitationLine": "Ont l’honneur de vous inviter à célébrer leur mariage.",
++    "evergreenCountdownIntro": "Notre histoire d’amour continue, et nous célébrerons son plus beau chapitre dans :",
++    "evergreenVenuesHeading": "Notre célébration",
++    "evergreenCeremony": "Cérémonie",
++    "evergreenReception": "Réception",
++    "evergreenViewMap": "Voir la carte",
++    "evergreenPhotosHelp": "Ajoutez une photo pour chaque cadre de papeterie. Chaque emplacement possède son propre cadrage, visible dans l’aperçu en direct.",
++    "evergreenPhotoHint": "Facultatif. Les photos sont redimensionnées à 1600 px et stockées dans les médias Aldriva.",
++    "evergreenPhotoEnvelope": "Photo de l’enveloppe",
++    "evergreenPhotoCover": "Photo de couverture",
++    "evergreenPhotoPolaroidOne": "Premier polaroïd",
++    "evergreenPhotoPolaroidTwo": "Deuxième polaroïd",
++    "evergreenPhotoStoryOne": "Photo de récit — premier cadre",
++    "evergreenPhotoStoryTwo": "Photo de récit — deuxième cadre",
++    "evergreenPhotoClosing": "Photo de clôture",
++    "evergreenPhotoRsvp": "Photo de la carte RSVP",
++    "evergreenScheduleIconLabel": "Icône du programme",
++    "evergreenScheduleIconNone": "Icône par défaut",
++    "evergreenScheduleIconDining": "Assiette et couverts",
++    "evergreenScheduleIconChampagne": "Flûtes de champagne",
++    "evergreenScheduleIconCake": "Gâteau",
++    "evergreenScheduleIconDancing": "Couple en danse",
++    "evergreenScheduleIconGift": "Puits à vœux",
++    "evergreenVenueTime": "Heure du lieu (facultatif)",
++    "evergreenVenueMapUrl": "Lien de carte (HTTPS, facultatif)",
++    "evergreenShowSchedule": "Afficher le programme",
++    "evergreenShowDressCode": "Afficher la tenue souhaitée",
++    "evergreenShowStory": "Afficher notre histoire",
++    "evergreenShowAccommodationPhotos": "Afficher l’hébergement et l’album",
++    "evergreenShowClosingPhoto": "Afficher la photo de clôture",
++    "evergreenShowRsvp": "Afficher la carte RSVP",
++    "evergreenShowLocationMap": "Afficher aussi le bloc de carte partagé (désactivé par défaut)",
++    "evergreenWishingWellNote": "Message du puits à vœux",
++    "evergreenStoryForeverWord": "Dernier mot en écriture cursive",
++    "evergreenClosingCaption": "Légende de la photo de clôture",
++    "evergreenRsvpIntro": "Introduction RSVP",
++    "evergreenScheduleHeading": "La journée",
++    "evergreenDressCodeHeading": "Tenue souhaitée",
++    "evergreenWishingWellHeading": "Puits à vœux",
++    "evergreenAdultsOnlyHeading": "Adultes seulement",
++    "evergreenStoryHeading": "Notre histoire",
++    "evergreenAccommodationsHeading": "Hébergement",
++    "evergreenAlbumHeading": "Photos",
++    "evergreenReserveHere": "Réserver",
++    "evergreenGoToAlbum": "Voir l’album",
++    "evergreenForeverFallback": "pour toujours",
++    "evergreenRsvpButton": "Répondre",
++    "evergreenRsvpDialogLabel": "Formulaire de réponse RSVP",
++    "evergreenRsvpClose": "Fermer le formulaire RSVP",
++    "evergreenRsvpFallback": "Nous avons hâte de célébrer avec vous. Merci de répondre avant le {date}.",
++    "evergreenWishingWellFallback": "Votre présence est le plus beau des cadeaux. Si vous le souhaitez, vous pouvez nous offrir un cadeau.",
++    "evergreenStoryPhotoAlt": "{names} ensemble",
++    "evergreenAccommodationPhotoAlt": "Portrait de mariage de {names}",
++    "evergreenMapUrlError": "Saisissez un lien de carte sécurisé en HTTPS, ou laissez ce champ vide pour utiliser la recherche.",
+     "invitationGalleryRemainingHint": "Vous pouvez en ajouter {remaining}. Maximum : 12 photos.",
+     "invitationGalleryQueued": "En attente",
+     "invitationGalleryProcessing": "Préparation",
+diff --git a/package.json b/package.json
+index 8cba2cd..811bf2d 100644
+--- a/package.json
++++ b/package.json
+@@ -9,6 +9,8 @@
+     "lint": "eslint",
+     "test": "node scripts/run-tests-chunked.cjs",
+     "test:chunked": "node scripts/run-tests-chunked.cjs",
++    "test:guest-allowance": "node --test lib/__tests__/guest-allowance.test.cjs",
++    "test:invitation-rsvp-stage3": "node --require ./scripts/test-server-only-alias.cjs --test --test-reporter=tap lib/__tests__/invitation-rsvp-stage3.test.cjs",
+     "smoke:admin": "playwright test --config e2e/admin-smoke.config.ts",
+     "supabase": "supabase",
+     "verify:staging-db": "node scripts/verify-staging-db.cjs",
+diff --git a/test-files.json b/test-files.json
+index a924d46..cd26035 100644
+--- a/test-files.json
++++ b/test-files.json
+@@ -203,5 +203,9 @@
+   "components/dashboard/kitchen/__tests__/cook-performance-panel.test.cjs",
+   "lib/courier/__tests__/courier-server.test.cjs",
+   "lib/courier/__tests__/courier-dashboard.test.cjs",
+-  "lib/courier/__tests__/courier-accept-page.test.cjs"
++  "lib/courier/__tests__/courier-accept-page.test.cjs",
++  "lib/__tests__/guest-allowance.test.cjs",
++  "lib/__tests__/invitation-rsvp-stage3.test.cjs",
++  "lib/__tests__/evergreen-envelope-stage4a.test.cjs",
++  "lib/__tests__/evergreen-envelope-stage4b.test.cjs"
+ ]
+diff --git a/types/invitation-template.ts b/types/invitation-template.ts
+index f44c596..1dbcb17 100644
+--- a/types/invitation-template.ts
++++ b/types/invitation-template.ts
+@@ -26,6 +26,64 @@ export interface InvitationScheduleItem {
+   day?: string | null;
+   /** Optional day alias for schema compatibility */
+   dayLabel?: string | null;
++  /** Optional Evergreen Envelope line-art icon key. */
++  icon?: "dining" | "champagne" | "cake" | "dancing" | "gift" | null;
++}
++
++export type EvergreenPhotoSlot =
++  | "envelope_photo_url"
++  | "cover_photo_url"
++  | "polaroid_photo_one_url"
++  | "polaroid_photo_two_url"
++  | "story_photo_one_url"
++  | "story_photo_two_url"
++  | "closing_photo_url"
++  | "rsvp_photo_url";
++
++export interface InvitationPhotoFocalPoint {
++  x: number;
++  y: number;
++}
++
++/** Data persisted in event_invitation_pages.blocks_layout.template_data. */
++export interface EvergreenEnvelopeTemplateData {
++  show_gate?: boolean;
++  show_cover?: boolean;
++  show_invitation_card?: boolean;
++  show_countdown_photos?: boolean;
++  show_venues?: boolean;
++  show_schedule?: boolean;
++  show_dress_code?: boolean;
++  show_story?: boolean;
++  show_accommodations_photos?: boolean;
++  show_closing_photo?: boolean;
++  show_rsvp?: boolean;
++  /** Shared map block is intentionally hidden unless enabled in the Evergreen builder. */
++  show_location_map?: boolean;
++  gate_intro?: string | null;
++  gate_heading?: string | null;
++  invitation_line?: string | null;
++  venues_heading?: string | null;
++  wishing_well_note?: string | null;
++  story_forever_word?: string | null;
++  closing_caption?: string | null;
++  rsvp_intro?: string | null;
++  parents_line?: string | null;
++  dress_code_swatches?: { name?: string | null; hex: string }[] | null;
++  adults_only_note?: string | null;
++  monogram_initials?: string | null;
++  album_url?: string | null;
++  show_wishing_well?: boolean;
++  show_adults_only?: boolean;
++  envelope_photo_url?: string | null;
++  cover_photo_url?: string | null;
++  polaroid_photo_one_url?: string | null;
++  polaroid_photo_two_url?: string | null;
++  story_photo_one_url?: string | null;
++  story_photo_two_url?: string | null;
++  closing_photo_url?: string | null;
++  rsvp_photo_url?: string | null;
++  photo_focal_points?: Partial<Record<EvergreenPhotoSlot, InvitationPhotoFocalPoint>> | null;
+ }
+ 
+ // ── Photo Gallery Item ───────────────────────────────────────────────────────
+@@ -75,6 +133,10 @@ export interface InvitationVenueItem {
+   name: string;
+   /** [HIDE-IF-EMPTY] Street address */
+   address?: string | null;
++  /** Venue-specific time; Evergreen falls back to the event's formatted time when empty. */
++  time?: string | null;
++  /** Optional custom map destination; must use HTTPS. */
++  mapUrl?: string | null;
+   /** [HIDE-IF-EMPTY] Latitude for map */
+   latitude?: number | null;
+   /** [HIDE-IF-EMPTY] Longitude for map */
+@@ -93,6 +155,8 @@ export interface InvitationGuestData {
+   rsvpStatus: "pending" | "accepted" | "declined";
+   /** [HIDE-IF-EMPTY] ISO timestamp of RSVP decision */
+   rsvpAt?: string | null;
++  /** Personalized Evergreen RSVP cap; not exposed on shared or OG views. */
++  guestAllowance?: number | null;
+   /** [HIDE-IF-EMPTY] Explicit VIP boolean flag. VIP status is NEVER inferred from title strings. */
+   isVip?: boolean;
+ }
+@@ -222,6 +286,33 @@ export interface InvitationPageData {
+   /** Ordered story moments with optional image, caption, and text. */
+   weddingStory?: { title?: string | null; text?: string | null; image?: string | null }[] | null;
+ 
++  // ── Evergreen Envelope-only optional content ────────────────────────────
++  /** [HIDE-IF-EMPTY] Parents/hosts line printed on the invitation card. */
++  parentsLine?: string | null;
++  /** [HIDE-IF-EMPTY] Organizer-chosen dress-code palette swatches. */
++  dressCodeSwatches?: { name?: string | null; hex: string }[] | null;
++  /** [HIDE-IF-EMPTY] Adults-only card note. */
++  adultsOnlyNote?: string | null;
++  /** [HIDE-IF-EMPTY] Small invitation-card monogram. */
++  monogramInitials?: string | null;
++  /** [HIDE-IF-EMPTY] Guest photo album URL. */
++  albumUrl?: string | null;
++  showWishingWell?: boolean;
++  showAdultsOnly?: boolean;
++  wishingWellNote?: string | null;
++  storyForeverWord?: string | null;
++  closingCaption?: string | null;
++  rsvpIntro?: string | null;
++  envelopePhoto?: string | null;
++  coverPhoto?: string | null;
++  polaroidPhotoOne?: string | null;
++  polaroidPhotoTwo?: string | null;
++  storyPhotoOne?: string | null;
++  storyPhotoTwo?: string | null;
++  closingPhoto?: string | null;
++  rsvpPhoto?: string | null;
++  photoFocalPoints?: Partial<Record<EvergreenPhotoSlot, InvitationPhotoFocalPoint>> | null;
++
+   // ── [HIDE-IF-EMPTY] Birthday-Specific Fields ─────────────────────────────
+   /** Celebrant name (e.g. "Maya Rodriguez") */
+   celebrantName?: string | null;

@@ -35,6 +35,8 @@ import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { getPublicTemplateSummary, getDemoTemplateSummary } from "@/lib/invitation-template-public-catalog";
+import { INVITATION_TEMPLATE_ID_PATH_PATTERN, isInvitationTemplateDemoPath } from "@/lib/invitation-template-marketplace-routes";
 
 // ---------------------------------------------------------------------------
 // i18n locale handling (next-intl compatible)
@@ -269,6 +271,29 @@ async function checkProductAccess(
 }
 
 // ---------------------------------------------------------------------------
+// Showcase preview reserved slug. "showcase-preview" is not a real
+// tenant_websites row — it's the fixed siteSlug used by both the internal
+// app/dev/showcase-preview harness and (for real links) the public
+// /templates/showcase/preview route. Every internal link rendered inside
+// those pages is still built with the ordinary site-link helpers
+// (lib/site-paths.ts), so they point at /site/showcase-preview/<page> like a
+// real tenant site would. Rather than special-case siteSlug through every
+// header/footer/tab-bar/block-renderer link builder, redirect those
+// /site/showcase-preview/* URLs to the public preview route here, before
+// checkWebsiteAccess ever runs a (guaranteed-miss) DB lookup for this slug.
+// Unconditional — the public route is always reachable, so there is no
+// "disabled in production" state to gate on anymore.
+// ---------------------------------------------------------------------------
+const SHOWCASE_PREVIEW_SLUG = "showcase-preview";
+const SHOWCASE_PREVIEW_PAGES = new Set(["menu", "order", "contact", "reservations"]);
+
+function resolveShowcasePreviewPage(pathname: string): string {
+  const rest = pathname.slice(`/site/${SHOWCASE_PREVIEW_SLUG}`.length).replace(/^\/+/, "");
+  const firstSegment = rest.split("/")[0];
+  return SHOWCASE_PREVIEW_PAGES.has(firstSegment) ? firstSegment : "home";
+}
+
+// ---------------------------------------------------------------------------
 // Tenant website access-control helper — mirrors checkArticleAccess.
 //
 // Gate logic:
@@ -462,12 +487,15 @@ function redirectAndSignOut(
 }
 
 export async function proxy(req: NextRequest) {
-  // ---- Locale resolution (path prefix > cookie > Accept-Language > default) ----
+  // ---- Locale resolution (?locale > path prefix > cookie > Accept-Language > default) ----
   const rawPathname = req.nextUrl.pathname;
   const {locale: pathLocale, stripped: strippedPath} = getLocaleFromPath(rawPathname);
+  const queryLocale = req.nextUrl.searchParams.get('locale');
+  const queryLocaleValid = isSupportedLocale(queryLocale) ? queryLocale as SupportedLocale : null;
   const cookieLocale = req.cookies.get(LOCALE_COOKIE)?.value ?? null;
   const acceptLang = req.headers.get('accept-language');
-  const inferredLocale: SupportedLocale = pathLocale ?? (isSupportedLocale(cookieLocale) ? cookieLocale as SupportedLocale : localeFromAcceptLanguage(acceptLang));
+  // ?locale is an explicit test override; it wins over cookie and Accept-Language.
+  const inferredLocale: SupportedLocale = queryLocaleValid ?? pathLocale ?? (isSupportedLocale(cookieLocale) ? cookieLocale as SupportedLocale : localeFromAcceptLanguage(acceptLang));
   const effectiveLocale: SupportedLocale = inferredLocale;
 
   // For routing/logic we use the stripped path (so /en/dashboard -> /dashboard)
@@ -499,9 +527,22 @@ export async function proxy(req: NextRequest) {
 
   // Also set on response for debugging/client
   res.headers.set(LOCALE_HEADER, effectiveLocale);
-  // If path had locale prefix, persist it; otherwise if no cookie yet, set inferred locale
+
+  // ── Route-specific security headers ────────────────────────────────────────
+  // The rental lookup page contains PII (customer name, booking dates, amounts)
+  // behind a UUID token.  It must not be indexed, cached, or leak its URL via
+  // the Referer header when the customer navigates to a third-party page.
+  if (pathname.startsWith('/rentals/lookup/')) {
+    res.headers.set('Cache-Control', 'no-store, private');
+    res.headers.set('Referrer-Policy', 'no-referrer');
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
+  // If path had locale prefix, persist it; otherwise if no cookie yet, set inferred locale.
+  // When ?locale is present, always set the cookie to the query value (explicit override).
   const existingCookie = req.cookies.get(LOCALE_COOKIE)?.value;
-  if (hasLocalePrefix) {
+  if (queryLocaleValid) {
+    res.cookies.set(LOCALE_COOKIE, effectiveLocale, { path: '/', maxAge: 31536000, sameSite: 'lax' });
+  } else if (hasLocalePrefix) {
     if (existingCookie !== effectiveLocale) {
       res.cookies.set(LOCALE_COOKIE, effectiveLocale, { path: '/', maxAge: 31536000, sameSite: 'lax' });
     }
@@ -665,6 +706,31 @@ export async function proxy(req: NextRequest) {
   }
 
   // -------------------------------------------------------------------------
+  // Invitation template details/demo/create gate. Same streaming/status-code
+  // constraint as the article gate above. Unlike the other gates, this is a
+  // pure, synchronous in-memory registry lookup (no REST/DB call) since the
+  // public template catalog is code-owned, not database-backed. Covers
+  // /invitations/templates/<id> (Phase 3), /invitations/templates/<id>/demo
+  // (Phase 4), and /invitations/templates/<id>/create (Phase 5) — same id,
+  // same check.
+  // -------------------------------------------------------------------------
+  const invitationTemplateSlugMatch = pathname.match(INVITATION_TEMPLATE_ID_PATH_PATTERN);
+  if (invitationTemplateSlugMatch) {
+    const templateId = invitationTemplateSlugMatch[1];
+    // The demo route alone also resolves "unlisted" templates (built but not
+    // yet in the public gallery) — see getDemoTemplateSummary. The details
+    // and create routes stay "published" only via getPublicTemplateSummary.
+    const summary = isInvitationTemplateDemoPath(pathname)
+      ? getDemoTemplateSummary(templateId)
+      : getPublicTemplateSummary(templateId);
+    if (!summary) {
+      const notFoundUrl = req.nextUrl.clone();
+      notFoundUrl.pathname = "/_not-found";
+      return NextResponse.rewrite(notFoundUrl, { status: 404 });
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Ticketmaster external-event existence gate.
   // Same streaming/status-code constraint as the article gate above. The page
   // also awaits isAdmin()/getDashboardContext() alongside the Ticketmaster
@@ -705,6 +771,15 @@ export async function proxy(req: NextRequest) {
   const websiteSlugMatch = pathname.match(/^\/site\/([^/]+)(?:\/.*)?$/);
   if (websiteSlugMatch) {
     const slug = websiteSlugMatch[1];
+
+    if (slug === SHOWCASE_PREVIEW_SLUG) {
+      const page = resolveShowcasePreviewPage(pathname);
+      const target = req.nextUrl.clone();
+      target.pathname = page === "home" ? "/templates/showcase/preview" : `/templates/showcase/preview/${page}`;
+      target.search = "";
+      return NextResponse.redirect(target);
+    }
+
     const allowed = await checkWebsiteAccess(slug, user?.id ?? null);
     if (!allowed) {
       const notFoundUrl = req.nextUrl.clone();
@@ -791,6 +866,12 @@ export const config = {
     "/products/:slug([^/]+)",
     // Ticketmaster external-event detail pages — same reason.
     "/external-events/ticketmaster/:id",
+    // Invitation template details, demo, AND create (anonymous builder)
+    // pages — same reason. Excluded: /invitations/templates (list) — the
+    // gate itself skips it too, see above.
+    "/invitations/templates/:templateId([^/]+)",
+    "/invitations/templates/:templateId([^/]+)/demo",
+    "/invitations/templates/:templateId([^/]+)/create",
     // Tenant public website pages — access gate must run before streaming
     // begins so draft/archived sites return a real HTTP 404 to anonymous
     // visitors. Matches /site/<slug> and /site/<slug>/<any-subpage>.

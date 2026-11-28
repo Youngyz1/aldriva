@@ -4,6 +4,7 @@ import { checkTenantAccess, ENTITY_ROLES_MANAGE } from "@/lib/entity-auth";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { getTenantWebsite } from "@/lib/actions/website";
 import { resolveWebsiteCategoryForOrganizer } from "@/lib/website-category";
+import { suggestCurrencyForCountry } from "@/lib/storefront-settings";
 import NewWebsiteClient from "./NewWebsiteClient";
 
 export default async function NewWebsitePage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,7 +22,7 @@ export default async function NewWebsitePage({ params }: { params: Promise<{ id:
   }
   const { data: linkedBusiness } = await supabase
     .from("businesses")
-    .select("name, logo, industry, category, business_type, created_at")
+    .select("name, logo, industry, category, business_type, country, created_at")
     .eq("organizer_id", id)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -56,6 +57,7 @@ export default async function NewWebsitePage({ params }: { params: Promise<{ id:
         org.org_type,
         linkedBusiness?.category ?? linkedBusiness?.business_type ?? linkedBusiness?.industry
       )}
+      initialCurrency={suggestCurrencyForCountry(linkedBusiness?.country)}
       canCreate={isSuperAdmin || Boolean(access?.hasAccess)}
     />
   );

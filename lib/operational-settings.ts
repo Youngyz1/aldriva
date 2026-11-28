@@ -29,7 +29,7 @@ import {
   type ContentDoc,
   type ContentHours,
 } from "@/lib/website-content";
-import { defaultTimezoneForCountry, isValidIanaTimezone } from "@/lib/date-timezone";
+import { DEFAULT_SITE_TIMEZONE, isValidIanaTimezone } from "@/lib/date-timezone";
 
 export interface OperationalSettingsData {
   websiteId: string | null;
@@ -42,7 +42,7 @@ export interface OperationalSettingsData {
   hoursSource: "draft" | "live" | null;
   hasDraftHours: boolean;
   hasLiveHours: boolean;
-  /** Owner's explicit choice (null = country/platform default applies). */
+  /** Owner's explicit choice (null = platform default applies). */
   timezone: string | null;
   timezoneDefault: string;
   businessCountry: string | null;
@@ -57,7 +57,7 @@ export async function resolveOperationalWebsite(organizerId: string, admin: Orde
   const [{ data: website }, { data: businesses }] = await Promise.all([
     admin
       .from("tenant_websites")
-      .select("id, slug, status, published_at, metadata")
+      .select("id, slug, status, metadata")
       .eq("tenant_id", organizerId)
       .order("created_at", { ascending: true })
       .limit(1)
@@ -98,7 +98,7 @@ export async function getOperationalSettingsWithClient(
       hasDraftHours: false,
       hasLiveHours: false,
       timezone: null,
-      timezoneDefault: defaultTimezoneForCountry(businessCountry),
+      timezoneDefault: DEFAULT_SITE_TIMEZONE,
       businessCountry,
     };
     if (!website) return { success: true, data: base };
@@ -123,7 +123,7 @@ export async function getOperationalSettingsWithClient(
         ...base,
         websiteId: (website as { id: string }).id,
         websiteSlug: ((website as { slug?: unknown }).slug as string) ?? null,
-        isPublished: Boolean((website as { published_at?: unknown }).published_at),
+        isPublished: (website as { status?: unknown }).status === "published",
         hasWebsite: true,
         hours: draftHours ?? liveHours,
         hoursSource: draftHours ? "draft" : liveHours ? "live" : null,

@@ -1,38 +1,42 @@
+/**
+ * lib/invitation-template-preview-data.ts
+ *
+ * Template-aware render-only sample merge for the builder's live preview and
+ * demo route. Minimalism Dark Blue behavior is preserved; burgundy-gold is
+ * additionally supported without changing minimalism output.
+ *
+ * Never pass this function's output to draft-save or publish actions.
+ */
 import type { InvitationPageData } from "@/types/invitation-template";
 import {
-  BOTANICAL_REVERIE_SAMPLE_DATA,
-  BIRTHDAY_INVITATION_SAMPLE_DATA,
-  EVERGREEN_ENVELOPE_SAMPLE_DATA,
-  EVERGREEN_ENVELOPE_SAMPLE_DATA_FR,
-  FULL_INVITATION_SAMPLE_DATA,
-  WEDDING_INVITATION_SAMPLE_DATA,
+  MINIMALISM_DARK_BLUE_SAMPLE_DATA,
+  MINIMALISM_DARK_BLUE_SAMPLE_DATA_FR,
+  BURGUNDY_GOLD_SAMPLE_DATA,
+  BURGUNDY_GOLD_SAMPLE_DATA_FR,
 } from "@/components/invitation/templates/invitation-sample-data";
-import { assembleInvitationPageData, type EventLiveFields, type InvitationPageSnapshot } from "@/lib/types/invitation-page-snapshot";
-import { SAMPLE_PREVIEW_GUEST, SAMPLE_PREVIEW_TICKET } from "@/lib/invitation-preview-channel";
+import { hasInvitationTemplateManifest } from "@/lib/invitation-template-manifests";
 
-const SAMPLE_DATA_BY_TEMPLATE: Record<string, InvitationPageData> = {
-  "evergreen-envelope": EVERGREEN_ENVELOPE_SAMPLE_DATA,
-  "botanical-reverie": BOTANICAL_REVERIE_SAMPLE_DATA,
-  "luxe-editorial": WEDDING_INVITATION_SAMPLE_DATA,
-  "wedding-romantic": WEDDING_INVITATION_SAMPLE_DATA,
-  "romantic-envelope": WEDDING_INVITATION_SAMPLE_DATA,
-  "birthday-bold": BIRTHDAY_INVITATION_SAMPLE_DATA,
-  "gala-editorial": FULL_INVITATION_SAMPLE_DATA,
-  "black-tie": FULL_INVITATION_SAMPLE_DATA,
-  cover: FULL_INVITATION_SAMPLE_DATA,
+/** Demo-only sample track — never set for gallery-card, builder-preview, or local-builder-preview callers. */
+export const DEMO_MUSIC_SAMPLE_URL = "/audio/invitations/minimalism-dark-blue/demo.mp3";
+
+const TEMPLATE_PREVIEW_CONFIG: Record<string, { en: InvitationPageData; fr: InvitationPageData; demoMusicSampleUrl?: string }> = {
+  "minimalism-dark-blue": {
+    en: MINIMALISM_DARK_BLUE_SAMPLE_DATA,
+    fr: MINIMALISM_DARK_BLUE_SAMPLE_DATA_FR,
+    demoMusicSampleUrl: DEMO_MUSIC_SAMPLE_URL,
+  },
+  "burgundy-gold": {
+    en: BURGUNDY_GOLD_SAMPLE_DATA,
+    fr: BURGUNDY_GOLD_SAMPLE_DATA_FR,
+  },
 };
 
-const NON_CONTENT_FIELDS = new Set([
-  "guest",
-  "ticketInstance",
-  "seat",
-  "token",
-  "locale",
-]);
+const NON_CONTENT_FIELDS = new Set(["guest", "ticketInstance", "seat", "token", "locale"]);
 
 const PHOTO_FIELDS = new Set([
   "heroImage",
   "storyImage",
+  "openingPhoto",
   "gallery",
   "weddingStory",
   "envelopePhoto",
@@ -53,30 +57,49 @@ function isEmpty(value: unknown): boolean {
   return false;
 }
 
-export interface InvitationTemplatePreviewData {
-  data: InvitationPageData;
-  /** Content keys whose displayed value came from the sample dataset. */
-  sampleFields: string[];
+interface EventMemoriesFields {
+  memoriesCount?: number;
+  memoriesToken?: string | null;
+}
+
+/**
+ * Forwards the real, server-computed memories count/token onto a render-only
+ * copy of the page data. assembleInvitationPageData never sets these two
+ * fields itself; this is how LivePreviewFrame.tsx's `event` prop (populated
+ * from a real DB lookup in builder-preview/[eventId]/page.tsx) reaches the
+ * template before the sample merge decides memoriesSample.
+ */
+export function applyEventMemories(data: InvitationPageData, event: EventMemoriesFields): InvitationPageData {
+  return {
+    ...data,
+    memoriesCount: event.memoriesCount ?? data.memoriesCount,
+    memoriesToken: event.memoriesToken ?? data.memoriesToken,
+  };
 }
 
 /**
  * Adds template sample content to a render-only copy of real event data.
- * Never pass this result to draft-save or publish actions.
+ * Fills only fields the real data left empty; never overrides a non-empty
+ * real value. Unknown templateIds are returned unchanged.
  */
 export function mergeInvitationTemplatePreviewData(
   templateId: string,
-  realData: InvitationPageData
-): InvitationTemplatePreviewData {
-  const sample = templateId === "evergreen-envelope" && realData.locale === "fr"
-    ? EVERGREEN_ENVELOPE_SAMPLE_DATA_FR
-    : SAMPLE_DATA_BY_TEMPLATE[templateId] ?? FULL_INVITATION_SAMPLE_DATA;
+  realData: InvitationPageData,
+  options?: { demoRoute?: boolean }
+): InvitationPageData {
+  const config = TEMPLATE_PREVIEW_CONFIG[templateId];
+  if (!config) return realData;
+
+  const sample = realData.locale === "fr" ? config.fr : config.en;
   const data: Record<string, unknown> = { ...realData };
   const sampleFields: string[] = [];
+  const isManifestTemplate = hasInvitationTemplateManifest(templateId);
   const hasMusicLink = Array.isArray(data.musicLinks) && data.musicLinks.length > 0;
   const hasOrganizerPhoto = Boolean(
     [
       data.heroImage,
       data.storyImage,
+      data.openingPhoto,
       data.envelopePhoto,
       data.envelopePhotoTwo,
       data.coverPhoto,
@@ -92,33 +115,22 @@ export function mergeInvitationTemplatePreviewData(
         : []),
     ].some((value) => typeof value === "string" && value.trim().length > 0)
   );
-  const hasOrganizerVenue = Boolean(
-    realData.venue?.trim()
-    || realData.address?.trim()
-    || realData.venues?.some((venue) => [venue.name, venue.address, venue.time, venue.mapUrl]
-      .some((value) => typeof value === "string" && value.trim().length > 0))
-  );
-  const hasOrganizerPartnerNames = Boolean(realData.partner1Name?.trim() || realData.partner2Name?.trim());
 
   for (const [key, sampleValue] of Object.entries(sample)) {
     if (NON_CONTENT_FIELDS.has(key) || isEmpty(sampleValue)) continue;
-    // Venue arrays and event-level venue fields are one semantic field. A
-    // sample Ceremony/Reception pair must never hide an organizer's flat venue.
-    if (templateId === "evergreen-envelope" && key === "venues" && hasOrganizerVenue) continue;
-    // Avoid mixing one real partner name with one sample name, and let the
-    // template derive its monogram from organizer names when no override exists.
-    if (templateId === "evergreen-envelope" && hasOrganizerPartnerNames
-      && ["partner1Name", "partner2Name", "monogramInitials"].includes(key)) continue;
-    // A single organizer upload disables every sample photo fallback. Empty
-    // frames can then resolve to another real upload according to template
-    // precedence instead of silently displaying unrelated sample art.
-    if (hasOrganizerPhoto && PHOTO_FIELDS.has(key)) continue;
+    // For manifest templates, use per-field photo gating so one uploaded
+    // photo does not blank other empty slots in the builder preview. Legacy
+    // (non-manifest) templates keep the global "any organizer photo" gate.
+    if (PHOTO_FIELDS.has(key)) {
+      if (isManifestTemplate) {
+        // fall through to the normal empty-check (real wins; empty gets sample in preview)
+      } else if (hasOrganizerPhoto) {
+        continue;
+      }
+    }
     // Sample audio would take precedence over a real provider link in the
     // floating control, making the builder preview appear unable to play it.
     if (hasMusicLink && (key === "musicAudioUrl" || key === "musicTitle")) continue;
-    // Cover intentionally keeps its palette fallback when the organizer has
-    // not chosen a hero; sample content must not add a stock photo there.
-    if (templateId === "cover" && key === "heroImage") continue;
     if (!isEmpty(data[key])) continue;
     data[key] = sampleValue;
     sampleFields.push(key);
@@ -126,40 +138,24 @@ export function mergeInvitationTemplatePreviewData(
 
   data.sampleFields = sampleFields;
 
-  return { data: data as unknown as InvitationPageData, sampleFields };
-}
+  // Memories gallery: show the local sample set only when there are no real
+  // approved guest photos yet (memoriesCount > 0 and a memoriesToken both
+  // present). Real memories, once present, are never overridden here.
+  const hasRealMemories =
+    (typeof realData.memoriesCount === "number" ? realData.memoriesCount : 0) > 0 &&
+    Boolean(realData.memoriesToken);
+  if (!hasRealMemories) {
+    data.memoriesSample = true;
+  }
 
-export function getInvitationTemplateSampleData(templateId: string, locale: "en" | "fr" = "en"): InvitationPageData {
-  if (templateId === "evergreen-envelope" && locale === "fr") return EVERGREEN_ENVELOPE_SAMPLE_DATA_FR;
-  return SAMPLE_DATA_BY_TEMPLATE[templateId] ?? FULL_INVITATION_SAMPLE_DATA;
-}
+  // Demo route only: show a sample track + music control, never on the
+  // gallery-card, builder-preview, or local-builder-preview surfaces (those
+  // never pass demoRoute). Real-wins: an organizer-configured music block
+  // (uploaded audio OR a provider link) is never overridden.
+  if (options?.demoRoute && !hasMusicLink && isEmpty(realData.musicAudioUrl) && config.demoMusicSampleUrl) {
+    data.musicSample = true;
+    data.musicAudioUrl = config.demoMusicSampleUrl;
+  }
 
-/** Builds render-only data from real draft/event values plus sample fallbacks. */
-export function buildInvitationTemplatePreviewData(
-  templateId: string,
-  draft: Record<string, unknown>,
-  event: Record<string, unknown>
-): InvitationTemplatePreviewData {
-  const locale = draft.locale === "fr" ? "fr" : "en";
-  const snapshot = { ...draft, template_id: templateId, locale } as unknown as InvitationPageSnapshot;
-  const liveEvent: EventLiveFields = {
-    id: String(event.id ?? ""),
-    title: typeof event.title === "string" && event.title ? event.title : "Exclusive Event",
-    slug: typeof event.slug === "string" ? event.slug : "",
-    event_date: typeof event.event_date === "string" ? event.event_date : "",
-    end_date: typeof event.end_date === "string" ? event.end_date : null,
-    venue: typeof event.venue === "string" ? event.venue : null,
-    street_address: typeof event.street_address === "string" ? event.street_address : null,
-    city: typeof event.city === "string" ? event.city : null,
-    latitude: typeof event.latitude === "number" ? event.latitude : null,
-    longitude: typeof event.longitude === "number" ? event.longitude : null,
-  };
-  const realData = assembleInvitationPageData(
-    snapshot,
-    liveEvent,
-    { ...SAMPLE_PREVIEW_GUEST },
-    { ...SAMPLE_PREVIEW_TICKET },
-    null
-  );
-  return mergeInvitationTemplatePreviewData(templateId, realData);
+  return data as unknown as InvitationPageData;
 }

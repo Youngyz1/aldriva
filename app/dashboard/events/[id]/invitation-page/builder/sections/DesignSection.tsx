@@ -3,7 +3,6 @@
 import { COLOR_PALETTES, FONT_PACKS, legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
 import {
   defaultInvitationEffectConfig,
-  getDefaultInvitationTemplateDefinition,
   getInvitationTemplateDefinition,
   type InvitationEffectConfig,
   type InvitationEffectType,
@@ -25,20 +24,17 @@ const EFFECT_LABELS: Record<InvitationEffectType, { label: string; description: 
 };
 
 export function DesignSection({ draft, updateDraft }: Props) {
-  const definition = getInvitationTemplateDefinition(draft.template_id) ?? getDefaultInvitationTemplateDefinition();
-  const isBotanicalReverie = definition.id === "botanical-reverie";
-  const customizations = definition.supportedCustomizations;
   const layout = legacyInvitationTemplateToLayout(draft.template_id, draft.blocks_layout);
   const theme = layout.global_theme;
   const selectedPalette = theme.palette_id ?? "";
   const selectedFontPack = theme.font_pack_id ?? "";
   const textScale = theme.text_scale ?? 1.0;
-  const paletteOptions = isBotanicalReverie
-    ? PALETTE_OPTIONS.filter(([id]) => ["palette-botanical", "palette-rose", "palette-emerald"].includes(id))
-    : PALETTE_OPTIONS;
-  const fontOptions = isBotanicalReverie
-    ? FONT_OPTIONS.filter(([id]) => ["font-serif-editorial", "font-serif-classic", "font-sans-clean"].includes(id))
-    : FONT_OPTIONS;
+
+  const templateDef = getInvitationTemplateDefinition(draft.template_id);
+  const customizations = templateDef?.supportedCustomizations ?? { palette: true, fontPack: true, textScale: true };
+  const supportedEffects: readonly InvitationEffectType[] = templateDef?.supportedEffects ?? [];
+  const paletteOptions = PALETTE_OPTIONS;
+  const fontOptions = FONT_OPTIONS;
 
   function updateTheme(patch: Partial<Pick<PageGlobalTheme, "palette_id" | "font_pack_id" | "text_scale">>) {
     const currentLayout = legacyInvitationTemplateToLayout(draft.template_id, draft.blocks_layout);
@@ -72,11 +68,6 @@ export function DesignSection({ draft, updateDraft }: Props) {
 
   return (
     <div className="space-y-7">
-      {isBotanicalReverie ? (
-        <aside className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-xs leading-relaxed text-emerald-950">
-          Palette, type, and text scale update the webpage. The botanical card keeps its stationery design; the selected hero photo and event details appear on both.
-        </aside>
-      ) : null}
       {customizations.palette ? <section aria-labelledby="invitation-palette-heading" className="space-y-3">
         <div>
           <h3 id="invitation-palette-heading" className="text-sm font-semibold text-zinc-900">Color palette</h3>
@@ -157,13 +148,13 @@ export function DesignSection({ draft, updateDraft }: Props) {
         </div>
       </section> : null}
 
-      {definition.supportedEffects.length ? <section aria-labelledby="invitation-motion-heading" className="space-y-3 border-t border-zinc-200 pt-5">
+      {supportedEffects.length ? <section aria-labelledby="invitation-motion-heading" className="space-y-3 border-t border-zinc-200 pt-5">
         <div>
           <h3 id="invitation-motion-heading" className="text-sm font-semibold text-zinc-900">Motion &amp; effects</h3>
           <p className="mt-1 text-xs text-zinc-500">Optional motion respects guests’ reduced-motion settings.</p>
         </div>
         <div className="space-y-3">
-          {definition.supportedEffects.map((type) => {
+          {supportedEffects.map((type) => {
             const current = effectFor(type);
             return (
               <div key={type} className="space-y-2">

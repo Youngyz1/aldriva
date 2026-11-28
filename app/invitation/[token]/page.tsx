@@ -3,14 +3,15 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { IconMailX as MailX } from "@tabler/icons-react";
-import { getInvitationByToken, getInvitationGuestAllowanceByToken } from "@/lib/invitations";
+import { getInvitationByToken } from "@/lib/invitations";
+import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import { BRAND } from "@/config/branding";
 import InvitationClient from "./InvitationClient";
 import { getPublishedInvitationPage } from "@/lib/actions/invitation-page";
 import { assembleInvitationPageData } from "@/lib/types/invitation-page-snapshot";
-import { getSiteUrl } from "@/lib/site-url";
-import { buildInvitationCardImageUrl } from "@/lib/invitation-card-url";
 import { legacyInvitationSnapshotToLayout } from "@/lib/invitation-page-layout";
+import { readShowMemories } from "@/lib/memories/public-gallery";
+import { resolveMemoriesProps } from "@/lib/memories/resolve-memories-props";
 import type { PageActionPayload, PageActionHandler } from "@/lib/page-actions";
 import { UniversalPageRenderer } from "@/components/site/UniversalPageRenderer";
 
@@ -39,31 +40,17 @@ export async function generateMetadata({
     const result = await getInvitationByToken(token);
     if (!result?.invitation) return baseMetadata;
 
-    const event = result.invitation.events as { id?: string; invitation_template_id?: string | null } | null;
-    const publishedPage = event?.id ? await getPublishedInvitationPage(event.id) : null;
-    const { getInvitationTemplateById } = await import("@/lib/invitation-templates");
-    const invitationTemplate = await getInvitationTemplateById(event?.invitation_template_id);
-    const cardSize = invitationTemplate.layout_config.design === "botanical-reverie" || invitationTemplate.layout_config.design === "luxe-editorial"
-      ? invitationTemplate.layout_config.canvas
-      : { width: 1200, height: 630 };
-    const cardImageUrl = buildInvitationCardImageUrl(
-      getSiteUrl(),
-      token,
-      event?.invitation_template_id,
-      publishedPage?.published_at
-    );
-
+    // No invitation templates ship with the platform, so the card.png route
+    // returns 404. Omit the card image from Open Graph metadata.
     return {
       ...baseMetadata,
       openGraph: {
         title,
         description,
         type: "website",
-        images: [{ url: cardImageUrl, width: cardSize.width, height: cardSize.height, alt: "Invitation card preview" }],
       },
       twitter: {
-        card: "summary_large_image",
-        images: [cardImageUrl],
+        card: "summary",
       },
     };
   } catch {
@@ -126,9 +113,6 @@ async function InvitationLoader({ token }: { token: string }) {
 
   if (publishedPage) {
     const templateId = publishedPage.published_snapshot.template_id;
-    const guestAllowance = templateId === "evergreen-envelope"
-      ? await getInvitationGuestAllowanceByToken(token)
-      : null;
     // Assemble live data layers into the InvitationPageData contract.
     const guestRecord = {
       guest_name: invitation.guest_name,
@@ -136,7 +120,6 @@ async function InvitationLoader({ token }: { token: string }) {
       organization: invitation.organization,
       rsvp_status: invitation.rsvp_status as "pending" | "accepted" | "declined",
       rsvp_at: invitation.rsvp_at,
-      ...(templateId === "evergreen-envelope" ? { guest_allowance: guestAllowance } : {}),
       token: invitation.token,
       is_vip: seat?.is_vip ?? false,
     };
@@ -167,11 +150,32 @@ async function InvitationLoader({ token }: { token: string }) {
       event_date: event.event_date || "",
       end_date: event.end_date || null,
       venue: event.venue || null,
-      street_address: null as string | null, // not selected in getInvitationByToken
+      street_address: (event.street_address as string | null) || null,
       city: event.city || null,
-      latitude: null as number | null,
-      longitude: null as number | null,
+      latitude: typeof event.latitude === "number" ? event.latitude : null,
+      longitude: typeof event.longitude === "number" ? event.longitude : null,
     };
+
+    const layout = legacyInvitationSnapshotToLayout(publishedPage.published_snapshot);
+    const showMemories = readShowMemories(layout.template_data);
+
+    // Round 7b: personalize memories — resolve share token if share_enabled, else hide button
+    const admin = createSupabaseAdmin();
+    const { data: shareRow, error } = await admin
+      .from("event_invitation_pages")
+      .select("share_enabled, share_token, page_status")
+      .eq("event_id", event.id)
+      .maybeSingle();
+    if (error) throw error;
+    const shareEnabled = shareRow?.share_enabled === true;
+
+    const { memoriesToken, memoriesCount } = await resolveMemoriesProps(
+      shareEnabled,
+      shareRow?.share_token,
+      event.id,
+      showMemories,
+      shareRow?.page_status
+    );
 
     const pageData = assembleInvitationPageData(
       publishedPage.published_snapshot,
@@ -180,9 +184,24 @@ async function InvitationLoader({ token }: { token: string }) {
       ticketRecord,
       seatRecord
     );
+    pageData.memoriesToken = memoriesToken;
+    pageData.memoriesCount = memoriesCount;
+    pageData.memoriesSample = false;
+
+    const { getVisibleGuestbookWishes } = await import("@/lib/invitations");
+    const visibleWishes = await getVisibleGuestbookWishes(event.id, 20);
+    pageData.initialWishes = visibleWishes;
 
     async function handlePageAction(payload: PageActionPayload) {
       "use server";
+      if (payload.actionType === "GUESTBOOK_WISH") {
+        const { submitGuestbookWish } = await import("@/lib/invitations");
+        return await submitGuestbookWish({
+          token,
+          name: payload.name,
+          message: payload.message,
+        });
+      }
       if (payload.actionType !== "RSVP_SUBMISSION") throw new Error("Unsupported invitation action.");
       const { rsvpInvitation } = await import("@/lib/invitations");
       await rsvpInvitation({
@@ -199,7 +218,7 @@ async function InvitationLoader({ token }: { token: string }) {
       <UniversalPageRenderer
         kind="invitation"
         templateId={templateId}
-        layout={legacyInvitationSnapshotToLayout(publishedPage.published_snapshot)}
+        layout={layout}
         data={pageData}
         onAction={onAction}
         mode="live"
@@ -207,9 +226,9 @@ async function InvitationLoader({ token }: { token: string }) {
     );
   }
 
-  // ── Fallback: existing invitation card (unchanged) ────────────────────────
-  const { getInvitationTemplateById } = await import("@/lib/invitation-templates");
-  const template = await getInvitationTemplateById(event?.invitation_template_id);
+  // ── Fallback: neutral invitation view ───────────────────────────────────────
+  // No invitation templates ship with the platform, so the card template is
+  // always null and the guest page renders the neutral RSVP card only.
 
   // Format seat label nicely if available
   let seatDisplay: {
@@ -241,7 +260,7 @@ async function InvitationLoader({ token }: { token: string }) {
   return (
     <InvitationClient
       token={token}
-      template={template}
+      template={null}
       guest={{
         name: invitation.guest_name,
         title: invitation.guest_title,

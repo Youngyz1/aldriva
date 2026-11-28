@@ -23,7 +23,6 @@ import {
   IconListNumbers as ListOrderedIcon,
   IconLink as LinkIcon,
   IconPhotoPlus as UploadImageIcon,
-  IconGlobe as LinkImageIcon,
   IconVideo as UploadVideoIcon,
   IconDeviceTv as LinkVideoIcon,
   IconArrowBackUp as UndoIcon,
@@ -139,23 +138,6 @@ const VideoExtension = Node.create({
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/ogg", "video/quicktime"];
 
-const validateImageUrl = (url: string): boolean => {
-  try {
-    const parsed = new URL(url);
-    const path = parsed.pathname.toLowerCase();
-    return (
-      path.endsWith(".jpg") ||
-      path.endsWith(".jpeg") ||
-      path.endsWith(".png") ||
-      path.endsWith(".webp") ||
-      path.endsWith(".gif") ||
-      path.endsWith(".avif")
-    );
-  } catch {
-    return false;
-  }
-};
-
 const validateVideoUrl = (url: string): boolean => {
   try {
     const parsed = new URL(url);
@@ -190,7 +172,7 @@ export default function RichTextEditor({
   onTriggerEntityPicker,
 }: RichTextEditorProps) {
   const [uploading, setUploading] = useState(false);
-  const [modalType, setModalType] = useState<"image" | "video" | "link" | null>(null);
+  const [modalType, setModalType] = useState<"video" | "link" | null>(null);
   const [modalInput, setModalInput] = useState("");
   const imageCropRef = useRef<ImageUploaderHandle>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -288,16 +270,6 @@ export default function RichTextEditor({
     }
     setModalType(null);
     setModalInput("");
-  };
-
-  const handleImageUrlSubmit = () => {
-    if (modalInput && validateImageUrl(modalInput)) {
-      editor.chain().focus().setImage({ src: modalInput }).run();
-      setModalType(null);
-      setModalInput("");
-    } else {
-      alert("Invalid image URL. Must end with .jpg, .jpeg, .png, .webp, .gif, or .avif");
-    }
   };
 
   const handleVideoUrlSubmit = () => {
@@ -508,14 +480,6 @@ export default function RichTextEditor({
         >
           <UploadImageIcon className="h-4 w-4" />
         </button>
-        <button
-          type="button"
-          onClick={() => setModalType("image")}
-          className={buttonStyle(false)}
-          title="Insert Image URL"
-        >
-          <LinkImageIcon className="h-4 w-4" />
-        </button>
 
         <button
           type="button"
@@ -618,17 +582,11 @@ export default function RichTextEditor({
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-zinc-100">
             <h3 className="text-lg font-black text-zinc-900 mb-2">
-              {modalType === "link"
-                ? "Insert Link"
-                : modalType === "image"
-                ? "Insert Image URL"
-                : "Insert Video URL"}
+              {modalType === "link" ? "Insert Link" : "Insert Video URL"}
             </h3>
             <p className="text-sm font-medium text-zinc-500 mb-4">
               {modalType === "link"
                 ? "Enter the destination URL for the link:"
-                : modalType === "image"
-                ? "Enter the absolute URL of the image:"
                 : "Enter YouTube, Vimeo, or direct MP4 video URL:"}
             </p>
             <input
@@ -641,7 +599,6 @@ export default function RichTextEditor({
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   if (modalType === "link") handleLinkSubmit();
-                  else if (modalType === "image") handleImageUrlSubmit();
                   else if (modalType === "video") handleVideoUrlSubmit();
                 }
               }}
@@ -661,7 +618,6 @@ export default function RichTextEditor({
                 type="button"
                 onClick={() => {
                   if (modalType === "link") handleLinkSubmit();
-                  else if (modalType === "image") handleImageUrlSubmit();
                   else if (modalType === "video") handleVideoUrlSubmit();
                 }}
                 className={`px-4 py-2.5 rounded-xl text-sm font-black text-white ${

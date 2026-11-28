@@ -1,8 +1,9 @@
 /**
  * lib/storefront-order-payments.ts
  *
- * Phase 3: online card payment for storefront orders (Stripe PaymentIntent,
- * USD only). No "use server" directive: the API route supplies real clients,
+ * Phase 3: online card payment for storefront orders (Stripe PaymentIntent).
+ * Only currencies in ONLINE_PAYMENT_CURRENCIES are chargeable.
+ * No "use server" directive: the API route supplies real clients,
  * tests inject mocks.
  *
  * Creation reuses submitOrderRequestWithClient (same repricing + validation,
@@ -43,13 +44,33 @@ export interface CreateOnlineOrderPaymentResult {
     | "invalid_options"
     | "unknown_option"
     | "invalid_schedule"
-    | "online_unavailable"
+    | "online_payment_unavailable"
+    | "online_payment_unsupported_currency"
+    | "online_payment_required"
     | "no_open_hours"
     | "db_error"
     | "payment_unavailable"
     | "unexpected";
   message?: string;
   itemId?: string;
+}
+
+export function toPaymentIntentFailureResponse(result: Pick<CreateOnlineOrderPaymentResult, "error" | "message" | "itemId">) {
+  const status =
+    result.error === "rate_limited" ? 429
+    : result.error === "website_not_found" ? 404
+    : result.error === "ordering_disabled" || result.error === "online_payment_unavailable" || result.error === "online_payment_unsupported_currency" ? 403
+    : result.error === "no_open_hours" ? 409
+    : 400;
+
+  return {
+    status,
+    body: {
+      error: result.message ?? "Could not start the payment.",
+      code: result.error,
+      itemId: result.itemId,
+    },
+  };
 }
 
 /**
@@ -75,7 +96,7 @@ export async function createOnlineOrderPayment(
   const idempotencyKey = (input.idempotencyKey || "").trim() || null;
   const { data: order, error: orderError } = await admin
     .from("orders")
-    .select("id, organizer_id, order_number, currency, subtotal, delivery_fee, total_amount, payment_method, payment_status")
+    .select("id, organizer_id, order_number, currency, subtotal, delivery_fee, total_amount, payment_method, payment_status, provider_reference")
     .eq("id", created.orderId)
     .maybeSingle();
 
@@ -84,8 +105,8 @@ export async function createOnlineOrderPayment(
     return { success: false, error: "db_error", message: "Failed to load the created order." };
   }
 
-  if (order.payment_method !== "online") {
-    return { success: false, error: "online_unavailable", message: "Online payment is not available for this site." };
+  if (order.payment_method !== "online" || order.payment_status !== "unpaid") {
+    return { success: false, error: "online_payment_unavailable", message: "Online card payment is not available for this order." };
   }
 
   let intent: { id: string; client_secret: string | null };
@@ -117,15 +138,30 @@ export async function createOnlineOrderPayment(
     return { success: false, error: "payment_unavailable", message: "Could not start the card payment. Your order is saved as unpaid." };
   }
 
-  const expiresAt = new Date(nowDate.getTime() + ONLINE_ORDER_PAYMENT_EXPIRY_MINUTES * 60_000).toISOString();
-  const { error: stampError } = await admin
+  // Orders created while the business is closed carry a next-opening
+  // `scheduled_for` that can be many hours out. Their payment window must not
+  // read as expired before the business can act, so it never ends before the
+  // scheduled time plus the normal window. Open-business orders keep the
+  // plain 30-minute window.
+  const baseExpiryMs = nowDate.getTime() + ONLINE_ORDER_PAYMENT_EXPIRY_MINUTES * 60_000;
+  const scheduledMs = created.scheduledFor ? Date.parse(created.scheduledFor) : Number.NaN;
+  const expiresAtMs =
+    Number.isFinite(scheduledMs) && scheduledMs > baseExpiryMs
+      ? scheduledMs + ONLINE_ORDER_PAYMENT_EXPIRY_MINUTES * 60_000
+      : baseExpiryMs;
+  const expiresAt = new Date(expiresAtMs).toISOString();
+  const { data: stampedOrder, error: stampError } = await admin
     .from("orders")
     .update({ provider: "stripe", provider_reference: intent.id, payment_expires_at: expiresAt })
-    .eq("id", order.id);
+    .eq("id", order.id)
+    .eq("payment_status", "unpaid")
+    .is("provider_reference", order.provider_reference ?? null)
+    .select("id")
+    .maybeSingle();
 
-  if (stampError) {
-    console.error("[storefront-order-payments] provider stamp failed:", stampError.message);
-    return { success: false, error: "db_error", message: "Failed to attach the payment. Your order is saved as unpaid." };
+  if (stampError || !stampedOrder) {
+    console.error("[storefront-order-payments] provider stamp failed:", stampError?.code || "association_conflict");
+    return { success: false, error: "db_error", message: "Failed to attach the payment. Please retry checkout." };
   }
 
   return {
@@ -192,7 +228,7 @@ export async function handleStorefrontOrderPaymentSucceeded(
   if (orderId) {
     const { data } = await admin
       .from("orders")
-      .select("id, organizer_id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, scheduled_for, items, provider, provider_reference, payment_expires_at")
+      .select("id, organizer_id, business_id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, table_label, delivery_address, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, scheduled_for, items, provider, provider_reference, payment_expires_at")
       .eq("id", orderId)
       .maybeSingle();
     order = (data as Record<string, unknown> | null) ?? null;
@@ -200,7 +236,7 @@ export async function handleStorefrontOrderPaymentSucceeded(
   if (!order) {
     const { data } = await admin
       .from("orders")
-      .select("id, organizer_id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, delivery_address, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, scheduled_for, items, provider, provider_reference, payment_expires_at")
+      .select("id, organizer_id, business_id, order_number, customer_name, customer_phone, customer_email, fulfilment_type, table_label, delivery_address, currency, subtotal, delivery_fee, total_amount, status, payment_method, payment_status, scheduled_for, items, provider, provider_reference, payment_expires_at")
       .eq("provider", "stripe")
       .eq("provider_reference", pi.id)
       .maybeSingle();
@@ -210,12 +246,21 @@ export async function handleStorefrontOrderPaymentSucceeded(
     return fail("not_found", "no order for this payment");
   }
 
-  if (order["payment_status"] === "paid") {
+  const targetOrderId = order["id"] as string;
+  if (order["payment_status"] === "paid" && order["provider"] === "stripe" && order["provider_reference"] === pi.id) {
     return { handled: true, alreadyPaid: true };
   }
-
-  if (typeof meta.organizer_id === "string" && meta.organizer_id !== order["organizer_id"]) {
-    return fail("tenant_mismatch", "metadata organizer does not own the order", order as never);
+  if (typeof meta.organizer_id !== "string" || meta.organizer_id !== order["organizer_id"]) {
+    return fail("tenant_mismatch", "payment metadata organizer does not match the order", order as never);
+  }
+  if (meta.order_id !== targetOrderId && order["provider_reference"] !== pi.id) {
+    return fail("tenant_mismatch", "payment metadata order does not match the stamped payment", order as never);
+  }
+  if (order["payment_method"] !== "online" || order["provider"] !== "stripe" || order["provider_reference"] !== pi.id) {
+    return fail("tenant_mismatch", "payment intent is not the order's stamped Stripe payment", order as never);
+  }
+  if (order["status"] === "cancelled") {
+    return fail("not_found", "cancelled orders cannot be marked paid", order as never);
   }
 
   const currency = String(order["currency"] ?? "").toUpperCase();
@@ -227,31 +272,54 @@ export async function handleStorefrontOrderPaymentSucceeded(
     return fail("amount_mismatch", `charge ${pi.amount} != order ${expectedMinor}`, order as never);
   }
 
-  // Conditional flip: exactly one retry wins; replays see paid above.
-  const { data: flipped, error: flipError } = await admin
-    .from("orders")
-    .update({ payment_status: "paid", provider: "stripe", provider_reference: pi.id })
-    .eq("id", order["id"] as string)
-    .eq("payment_status", "unpaid")
-    .select("id")
-    .maybeSingle();
-
-  if (flipError || !flipped) {
-    if (flipError) {
-      console.error("[storefront-order-payments] paid flip failed:", flipError.message);
-      if (alert) {
-        await alert({
-          kind: "storefront_order",
-          stripePaymentIntentId: pi.id,
-          amount: typeof pi.amount === "number" ? pi.amount : 0,
-          currency: typeof pi.currency === "string" ? pi.currency : "unknown",
-          buyerEmail: (order["customer_email"] as string | null) ?? null,
-          rawMetadata: meta,
-          errorMessage: `paid flip failed: ${flipError.message}`,
-        });
-      }
-      return { handled: true, rejected: undefined };
+  if (typeof (admin as any).rpc !== "function") {
+    console.error("[storefront-order-payments] atomic settlement RPC is unavailable");
+    if (alert) {
+      await alert({
+        kind: "storefront_order",
+        stripePaymentIntentId: pi.id,
+        amount: pi.amount,
+        currency: pi.currency,
+        buyerEmail: (order["customer_email"] as string | null) ?? null,
+        rawMetadata: meta,
+        errorMessage: "Atomic payment and ledger settlement RPC is unavailable",
+      });
     }
+    return { handled: true };
+  }
+
+  const { data: rpcRows, error: rpcError } = await (admin as any).rpc(
+    "record_storefront_order_paid_and_credit",
+    {
+      p_order_id: targetOrderId,
+      p_stripe_payment_intent_id: pi.id,
+    }
+  );
+
+  if (rpcError) {
+    console.error("[storefront-order-payments] atomic settlement RPC failed:", rpcError.code || "unknown");
+    if (alert) {
+      await alert({
+        kind: "storefront_order",
+        stripePaymentIntentId: pi.id,
+        amount: pi.amount,
+        currency: pi.currency,
+        buyerEmail: (order["customer_email"] as string | null) ?? null,
+        rawMetadata: meta,
+        errorMessage: "Atomic payment and ledger settlement failed",
+      });
+    }
+    return { handled: true };
+  }
+
+  const row = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+  if (!row || row.out_error) {
+    if (row?.out_error === "PAYMENT_ASSOCIATION_MISMATCH: Payment does not match this order") {
+      return fail("tenant_mismatch", "payment intent is not the order's stamped payment attempt", order as never);
+    }
+    return { handled: true, rejected: "not_found" };
+  }
+  if (!row.out_was_newly_paid) {
     return { handled: true, alreadyPaid: true };
   }
 
@@ -265,7 +333,8 @@ export async function handleStorefrontOrderPaymentSucceeded(
     customer_name: order["customer_name"] as string,
     customer_phone: order["customer_phone"] as string,
     customer_email: (order["customer_email"] as string | null) ?? null,
-    fulfilment_type: order["fulfilment_type"] as "pickup" | "delivery",
+    fulfilment_type: order["fulfilment_type"] as "pickup" | "delivery" | "dine_in",
+    table_label: (order["table_label"] as string | null) ?? null,
     delivery_address: (order["delivery_address"] as string | null) ?? null,
     currency,
     subtotal: Number(order["subtotal"] ?? 0),

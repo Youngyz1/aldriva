@@ -48,12 +48,16 @@ export default async function MemoryUploadPage({
 async function MemoryLoader({ token }: { token: string }) {
   await connection();
 
+  let rateLimited = false;
   try {
     const ip = clientIp({ headers: await headers() } as unknown as Request);
     const gate = await checkRateLimit("memoryView", `ip:${ip}`);
-    if (!gate.allowed) return <InvalidMemoryView message="Too many requests. Please try again shortly." />;
+    if (!gate.allowed) rateLimited = true;
   } catch {
     /* fail open */
+  }
+  if (rateLimited) {
+    return <InvalidMemoryView message="Too many requests. Please try again shortly." />;
   }
 
   const admin = createSupabaseAdmin();

@@ -15,8 +15,7 @@ import type { EventLiveFields } from "@/lib/types/invitation-page-snapshot";
 import { validateForPublish } from "@/lib/invitation-page-schema";
 import { sectionForPublishField, type BuilderSectionId } from "@/lib/invitation-publish-nav";
 import { createOrRegeneratePreviewToken } from "@/lib/actions/invitation-page";
-import { INVITATION_TEMPLATES } from "@/components/invitation/templates/registry";
-import { getUnifiedTemplateNameKey } from "@/lib/unified-invitation-templates";
+import { useInvitationBuilderPersistence } from "@/components/invitation/InvitationBuilderPersistenceContext";
 
 interface Props {
   eventId: string;
@@ -42,14 +41,11 @@ export function PublishSection({
   disabled,
 }: Props) {
   const t = useTranslations("Events");
+  const persistence = useInvitationBuilderPersistence();
+  const isLocal = persistence.mode === "local";
   const [previewLoading, setPreviewLoading] = useState(false);
   const isPublished = pageStatus === "published";
   const validation = validateForPublish(draft, event, draft.locale || "en");
-  const templateNameKey = getUnifiedTemplateNameKey(draft.template_id);
-  const templateDisplayName = templateNameKey
-    ? t(templateNameKey)
-    : INVITATION_TEMPLATES.find((template) => template.id === draft.template_id)?.name ?? draft.template_id;
-
   const handlePreview = async () => {
     setPreviewLoading(true);
     try {
@@ -61,6 +57,12 @@ export function PublishSection({
       setPreviewLoading(false);
     }
   };
+
+  const publishErrors = isLocal
+    ? validation.errors.filter(
+        (err) => !(err.message === "Image URL must be from storage" && err.field.startsWith("gallery."))
+      )
+    : validation.errors;
 
   return (
     <div className="space-y-8">
@@ -101,15 +103,17 @@ export function PublishSection({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handlePreview}
-          disabled={disabled || previewLoading}
-          className="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-bold text-zinc-800 shadow-xs hover:bg-zinc-50 disabled:opacity-50"
-        >
-          <Eye size={14} className="text-zinc-500" />
-          {previewLoading ? "Opening..." : "Preview Draft"}
-        </button>
+        {!isLocal && (
+          <button
+            type="button"
+            onClick={handlePreview}
+            disabled={disabled || previewLoading}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-bold text-zinc-800 shadow-xs hover:bg-zinc-50 disabled:opacity-50"
+          >
+            <Eye size={14} className="text-zinc-500" />
+            {previewLoading ? "Opening..." : "Preview Draft"}
+          </button>
+        )}
       </div>
 
       {/* Validation Checklist (failures are jump links) */}
@@ -129,7 +133,7 @@ export function PublishSection({
           <div className="flex items-center justify-between py-2 text-xs">
             <span className="text-zinc-700">Selected Template</span>
             <span className="font-semibold text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 size={13} /> {templateDisplayName}
+              <CheckCircle2 size={13} /> {draft.template_id || "—"}
             </span>
           </div>
 
@@ -168,102 +172,81 @@ export function PublishSection({
               </span>
             )}
           </div>
-
-          {/* Template Specific Checks */}
-          {(draft.template_id === "wedding-romantic" || draft.template_id === "luxe-editorial") && (
-            <div className="flex items-center justify-between py-2 text-xs">
-              <span className="text-zinc-700">Couple Names</span>
-              {draft.partner1_name && draft.partner2_name ? (
-                <span className="font-semibold text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 size={13} /> {draft.partner1_name} & {draft.partner2_name}
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onJumpToSection("extras")}
-                  className="font-semibold text-red-600 flex items-center gap-1 hover:underline"
-                >
-                  <AlertCircle size={13} /> Both partner names required — fix in Special fields
-                </button>
-              )}
-            </div>
-          )}
-
-          {draft.template_id === "birthday-bold" && (
-            <div className="flex items-center justify-between py-2 text-xs">
-              <span className="text-zinc-700">Celebrant Name</span>
-              {draft.celebrant_name ? (
-                <span className="font-semibold text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 size={13} /> {draft.celebrant_name}
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onJumpToSection("extras")}
-                  className="font-semibold text-red-600 flex items-center gap-1 hover:underline"
-                >
-                  <AlertCircle size={13} /> Celebrant name required — fix in Special fields
-                </button>
-              )}
-            </div>
-          )}
         </div>
-
-        {/* Validation Errors List (each a jump link to its section) */}
-        {!validation.valid && (
-          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 space-y-1">
-            <p className="text-xs font-bold text-red-700">Please fix the following issues before publishing:</p>
-            <ul className="list-inside list-disc text-xs text-red-600 space-y-0.5">
-              {validation.errors.map((err, i) => (
-                <li key={i}>
-                  <button
-                    type="button"
-                    onClick={() => onJumpToSection(sectionForPublishField(err.field))}
-                    className="hover:underline"
-                  >
-                    {err.message}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
 
-      {/* Publish / Unpublish Actions */}
-      <div className="flex flex-col items-stretch gap-4 pt-2">
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-zinc-900">
-            {isPublished ? "Republish or Unpublish" : "Ready to launch?"}
-          </p>
-          <p className="text-[11px] text-zinc-500">
-            Publishing captures a new frozen snapshot of your draft. Guests with existing links will immediately see the updated template.
-          </p>
+      {/* Validation Errors List (each a jump link to its section) */}
+      {publishErrors.length > 0 && (
+        <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 space-y-1">
+          <p className="text-xs font-bold text-red-700">Please fix the following issues before publishing:</p>
+          <ul className="list-inside list-disc text-xs text-red-600 space-y-0.5">
+            {publishErrors.map((err, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => onJumpToSection(sectionForPublishField(err.field))}
+                  className="hover:underline"
+                >
+                  {err.message}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
+      )}
 
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-start">
-          {isPublished && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={onUnpublish}
-              className="w-full rounded-xl border border-red-200 bg-white px-4 py-2.5 text-xs font-bold text-red-700 shadow-xs hover:bg-red-50 disabled:opacity-50 sm:w-auto"
-            >
-              Unpublish Page
-            </button>
-          )}
-
+      {/* Publish / Unpublish Actions */}
+      {isLocal ? (
+        <div className="flex flex-col items-stretch gap-3 rounded-xl border border-orange-200 bg-orange-50 p-4 pt-4">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-zinc-900">{t("localSignInToPublishTitle")}</p>
+            <p className="text-[11px] text-zinc-600">{t("localSignInToPublishBody")}</p>
+          </div>
           <button
             type="button"
-            disabled={disabled || !validation.valid}
-            onClick={() => onPublish(draft.locale || "en")}
+            disabled={disabled}
+            onClick={() => persistence.handleLocalSignInToPublish?.()}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-orange-700 transition disabled:opacity-40 sm:w-auto"
           >
             <Sparkles size={14} />
-            {isPublished ? "Update Published Snapshot" : "Publish Invitation Page"}
+            {t("localSignInToPublishButton")}
           </button>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col items-stretch gap-4 pt-2">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-zinc-900">
+              {isPublished ? "Republish or Unpublish" : "Ready to launch?"}
+            </p>
+            <p className="text-[11px] text-zinc-500">
+              Publishing captures a new frozen snapshot of your draft. Guests with existing links will immediately see the updated template.
+            </p>
+          </div>
+
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-start">
+            {isPublished && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={onUnpublish}
+                className="w-full rounded-xl border border-red-200 bg-white px-4 py-2.5 text-xs font-bold text-red-700 shadow-xs hover:bg-red-50 disabled:opacity-50 sm:w-auto"
+              >
+                Unpublish Page
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={disabled || !validation.valid}
+              onClick={() => onPublish(draft.locale || "en")}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-orange-700 transition disabled:opacity-40 sm:w-auto"
+            >
+              <Sparkles size={14} />
+              {isPublished ? "Update Published Snapshot" : "Publish Invitation Page"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

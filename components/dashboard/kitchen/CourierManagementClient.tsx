@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ExpandablePersonnelRecord } from "@/components/dashboard/kitchen/ExpandablePersonnelRecord";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   createCourier,
   deactivateCourier,
@@ -67,11 +68,22 @@ export function CourierManagementClient({ organizerId, businesses }: Props) {
   const [busyKey, setBusyKey] = useState("");
   const [error, setError] = useState("");
   const [oneTimeLink, setOneTimeLink] = useState<OneTimeLink | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [addCourierBusinessId, setAddCourierBusinessId] = useState<string | null>(null);
   const [pendingCourierAction, setPendingCourierAction] = useState<PendingCourierAction>(null);
 
   function revealLink(name: string, path: string, token: string) {
     setOneTimeLink({ name, url: `${window.location.origin}${path}#${token}` });
+    setCopied(false);
+    setCopyFailed(false);
+  }
+
+  async function copyLink() {
+    if (!oneTimeLink) return;
+    const succeeded = await copyTextToClipboard(oneTimeLink.url);
+    setCopied(succeeded);
+    setCopyFailed(!succeeded);
   }
 
   async function perform(
@@ -142,9 +154,21 @@ export function CourierManagementClient({ organizerId, businesses }: Props) {
           <p className="font-semibold">{oneTimeLink.name} — copy now</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <a href={oneTimeLink.url} className="break-all underline">Open invitation</a>
-            <Button type="button" size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(oneTimeLink.url)}>Copy link</Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setOneTimeLink(null)}>Close</Button>
+            <Button type="button" size="sm" variant="outline" onClick={copyLink}>{copied ? "Copied" : "Copy link"}</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => { setOneTimeLink(null); setCopied(false); setCopyFailed(false); }}>Close</Button>
           </div>
+          {copyFailed && (
+            <>
+              <p className="mt-2 text-xs font-semibold text-red-700">Copy failed - select the link and copy it manually</p>
+              <input
+                type="text"
+                readOnly
+                value={oneTimeLink.url}
+                onFocus={(e) => e.currentTarget.select()}
+                className="mt-1 w-full rounded-lg border border-emerald-200 bg-white px-2 py-1 font-mono text-xs text-zinc-700"
+              />
+            </>
+          )}
         </div>
       )}
 

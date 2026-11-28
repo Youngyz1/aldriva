@@ -23,9 +23,20 @@ import {
   IconFileSpreadsheet as FileSpreadsheet,
   IconDownload as Download,
   IconEye as Eye,
+  IconEyeOff as EyeOff,
+  IconTrash as Trash2,
+  IconMessageHeart as MessageHeart,
+  IconCopy as Copy,
+  IconBrandWhatsapp as WhatsappIcon,
 } from "@tabler/icons-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
+import { copyTextToClipboard } from "@/lib/clipboard";
+import {
+  toggleGuestbookWishVisibility,
+  deleteGuestbookWish,
+  type HostGuestbookWish,
+} from "@/lib/actions/event-guestbook";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -84,6 +95,7 @@ type Props = {
   initialGuests: GuestItem[];
   initialAvailableSeats: AvailableSeat[];
   guestColumnsAvailable: boolean;
+  initialWishes?: HostGuestbookWish[];
 };
 
 type Toast = { type: "success" | "error"; message: string } | null;
@@ -110,6 +122,7 @@ export default function GuestsClient({
   initialGuests,
   initialAvailableSeats,
   guestColumnsAvailable: initialGuestColumnsAvailable,
+  initialWishes = [],
 }: Props) {
   const t = useTranslations("Events");
   const [guests, setGuests] = useState<GuestItem[]>(initialGuests);
@@ -121,6 +134,61 @@ export default function GuestsClient({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
 
+  // View mode: Guests vs Guestbook wishes
+  const [activeTab, setActiveTab] = useState<"guests" | "wishes">("guests");
+  const [wishes, setWishes] = useState<HostGuestbookWish[]>(initialWishes || []);
+  const [wishFilter, setWishFilter] = useState<"all" | "visible" | "hidden">("all");
+  const [wishSearch, setWishSearch] = useState("");
+  const [wishActionId, setWishActionId] = useState<string | null>(null);
+
+  const handleToggleWishVisibility = async (wish: HostGuestbookWish) => {
+    setWishActionId(wish.id);
+    try {
+      const res = await toggleGuestbookWishVisibility(eventId, wish.id, !wish.isVisible);
+      if (!res.ok) throw new Error(res.error || "Failed to update wish visibility.");
+      setWishes((prev) =>
+        prev.map((w) => (w.id === wish.id ? { ...w, isVisible: !wish.isVisible } : w))
+      );
+      showToast("success", wish.isVisible ? "Wish hidden from public feed." : "Wish is now visible.");
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to update wish visibility.");
+    } finally {
+      setWishActionId(null);
+    }
+  };
+
+  const handleDeleteWish = async (wish: HostGuestbookWish) => {
+    if (typeof window !== "undefined" && !window.confirm("Are you sure you want to delete this wish? This action cannot be undone.")) {
+      return;
+    }
+    setWishActionId(wish.id);
+    try {
+      const res = await deleteGuestbookWish(eventId, wish.id);
+      if (!res.ok) throw new Error(res.error || "Failed to delete wish.");
+      setWishes((prev) => prev.filter((w) => w.id !== wish.id));
+      showToast("success", "Wish deleted.");
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to delete wish.");
+    } finally {
+      setWishActionId(null);
+    }
+  };
+
+  const filteredWishes = useMemo(() => {
+    return wishes.filter((wish) => {
+      if (wishFilter === "visible" && !wish.isVisible) return false;
+      if (wishFilter === "hidden" && wish.isVisible) return false;
+      if (wishSearch.trim()) {
+        const query = wishSearch.toLowerCase();
+        return (
+          wish.guestName.toLowerCase().includes(query) ||
+          wish.message.toLowerCase().includes(query)
+        );
+      }
+      return true;
+    });
+  }, [wishes, wishFilter, wishSearch]);
+
   // Modals state
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
@@ -128,6 +196,13 @@ export default function GuestsClient({
   const [viewingRsvpGuest, setViewingRsvpGuest] = useState<GuestItem | null>(null);
   const [assigningSeatGuest, setAssigningSeatGuest] = useState<GuestItem | null>(null);
   const [cancellingGuest, setCancellingGuest] = useState<GuestItem | null>(null);
+  const [inviteLinkBanner, setInviteLinkBanner] = useState<{
+    guestName: string;
+    url: string;
+    whatsappUrl: string | null;
+  } | null>(null);
+  const [copiedInviteLink, setCopiedInviteLink] = useState(false);
+  const [inviteLinkCopyFailed, setInviteLinkCopyFailed] = useState(false);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -135,6 +210,13 @@ export default function GuestsClient({
     setToast({ type, message });
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 4000);
+  }
+
+  async function copyInviteLink(url: string) {
+    const succeeded = await copyTextToClipboard(url);
+    setCopiedInviteLink(succeeded);
+    setInviteLinkCopyFailed(!succeeded);
+    if (succeeded) setTimeout(() => setCopiedInviteLink(false), 2000);
   }
 
   // ── Refresh Guests ────────────────────────────────────────────────────────
@@ -214,7 +296,19 @@ export default function GuestsClient({
         return;
       }
 
-      showToast("success", data.message || "Invitation email sent successfully.");
+      if (data.invitationUrl) {
+        setInviteLinkBanner({
+          guestName: guest.guest_name,
+          url: data.invitationUrl,
+          whatsappUrl: data.whatsappUrl || null,
+        });
+      }
+      showToast(
+        data.emailed ? "success" : "error",
+        data.emailed
+          ? data.message || "Invitation email sent successfully."
+          : `Email could not be sent: ${data.message || "unknown reason"}`
+      );
       await refreshGuests();
     } catch {
       showToast("error", "Network error. Please try again.");
@@ -315,6 +409,60 @@ export default function GuestsClient({
         </div>
       )}
 
+      {/* Shareable Invitation Link Banner — shown after creating/sending/resending
+          a guest invitation, regardless of whether the email also went out, so
+          the link is never only reachable through an inbox that may not have
+          received it. */}
+      {inviteLinkBanner && (
+        <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-black uppercase text-violet-800">
+              Shareable Invitation Link for {inviteLinkBanner.guestName}
+            </p>
+            <button
+              type="button"
+              onClick={() => setInviteLinkBanner(null)}
+              className="text-violet-500 hover:text-violet-800"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              readOnly
+              value={inviteLinkBanner.url}
+              onFocus={(e) => e.currentTarget.select()}
+              className="flex-1 rounded-xl border border-violet-200 bg-white px-3 py-2 text-xs font-mono text-zinc-800"
+            />
+            <button
+              type="button"
+              onClick={() => copyInviteLink(inviteLinkBanner.url)}
+              className="flex items-center gap-1 shrink-0 rounded-xl bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700"
+            >
+              {copiedInviteLink ? <Check size={14} /> : <Copy size={14} />}
+              {copiedInviteLink ? "Copied!" : "Copy Link"}
+            </button>
+            {inviteLinkBanner.whatsappUrl && (
+              <a
+                href={inviteLinkBanner.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 shrink-0 rounded-xl bg-[#25D366] px-3 py-2 text-xs font-bold text-white hover:bg-[#1ebe57]"
+              >
+                <WhatsappIcon size={14} />
+                Send via WhatsApp
+              </a>
+            )}
+          </div>
+          {inviteLinkCopyFailed && (
+            <p className="text-xs font-semibold text-red-700">
+              Copy failed - select the link and copy it manually
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Toast Notification */}
       {toast && (
         <div
@@ -333,8 +481,38 @@ export default function GuestsClient({
         </div>
       )}
 
-      {/* Stats Summary */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {/* View Tabs: Guest List vs Guestbook Wishes */}
+      <div className="flex border-b border-zinc-200 gap-6">
+        <button
+          type="button"
+          onClick={() => setActiveTab("guests")}
+          className={`pb-3 text-sm font-black border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === "guests"
+              ? "border-orange-600 text-orange-600"
+              : "border-transparent text-zinc-500 hover:text-zinc-800"
+          }`}
+        >
+          <Users size={16} />
+          Guest List ({guests.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("wishes")}
+          className={`pb-3 text-sm font-black border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === "wishes"
+              ? "border-orange-600 text-orange-600"
+              : "border-transparent text-zinc-500 hover:text-zinc-800"
+          }`}
+        >
+          <MessageHeart size={16} />
+          Guestbook Wishes ({wishes.length})
+        </button>
+      </div>
+
+      {activeTab === "guests" ? (
+        <>
+          {/* Stats Summary */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {[
           { label: "Total Invited", value: stats.total, color: "text-zinc-900" },
           { label: "Invitations Sent", value: stats.sent, color: "text-violet-700" },
@@ -630,15 +808,153 @@ export default function GuestsClient({
           </div>
         </div>
       )}
+        </>
+      ) : (
+        <div className="space-y-4">
+          {/* Wishes Header & Controls */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Search wishes by guest name or message…"
+                value={wishSearch}
+                onChange={(e) => setWishSearch(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-9 pr-4 text-sm font-semibold placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+              {wishSearch && (
+                <button
+                  onClick={() => setWishSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {(["all", "visible", "hidden"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setWishFilter(mode)}
+                  className={`rounded-xl border px-3.5 py-1.5 text-xs font-black uppercase tracking-wider transition-all ${
+                    wishFilter === mode
+                      ? "border-orange-500 bg-orange-600 text-white"
+                      : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900"
+                  }`}
+                >
+                  {mode === "all"
+                    ? `All (${wishes.length})`
+                    : mode === "visible"
+                      ? `Visible (${wishes.filter((w) => w.isVisible).length})`
+                      : `Hidden (${wishes.filter((w) => !w.isVisible).length})`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Wishes List */}
+          {filteredWishes.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 py-12 text-center">
+              <MessageHeart size={28} className="mx-auto mb-3 text-zinc-300" />
+              <p className="text-sm font-black text-zinc-700">
+                {wishes.length === 0 ? "No guestbook wishes yet" : "No wishes match your search or filter."}
+              </p>
+              <p className="mt-1 text-xs text-zinc-400">
+                {wishes.length === 0
+                  ? "When guests leave wishes on your invitation page, they will appear here."
+                  : "Try adjusting your search terms or filter."}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+              {filteredWishes.map((wish) => (
+                <div
+                  key={wish.id}
+                  className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+                  data-guestbook-wish-row={wish.id}
+                >
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-zinc-900 text-sm">{wish.guestName}</span>
+                      <span className="text-xs text-zinc-400">
+                        {new Date(wish.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          wish.isVisible
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-zinc-100 text-zinc-600 border border-zinc-200"
+                        }`}
+                      >
+                        {wish.isVisible ? "Visible" : "Hidden"}
+                      </span>
+                    </div>
+                    <p className="text-sm text-zinc-700 whitespace-pre-wrap break-words">{wish.message}</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={wishActionId === wish.id}
+                      onClick={() => handleToggleWishVisibility(wish)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
+                        wish.isVisible
+                          ? "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      }`}
+                    >
+                      {wish.isVisible ? <EyeOff size={13} /> : <Eye size={13} />}
+                      {wish.isVisible ? "Hide" : "Show"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={wishActionId === wish.id}
+                      onClick={() => handleDeleteWish(wish)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 size={13} />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Add Guest Modal ── */}
       {addModalOpen && (
         <AddGuestModal
           eventId={eventId}
           availableSeats={availableSeats}
-          onSuccess={async () => {
+          onSuccess={async (emailResult) => {
             setAddModalOpen(false);
-            showToast("success", "Guest invitation created successfully.");
+            if (emailResult?.invitationUrl) {
+              setInviteLinkBanner({
+                guestName: "the guest",
+                url: emailResult.invitationUrl,
+                whatsappUrl: emailResult.whatsappUrl || null,
+              });
+            }
+            if (emailResult) {
+              showToast(
+                emailResult.emailed ? "success" : "error",
+                emailResult.emailed
+                  ? emailResult.message || "Invitation email sent successfully."
+                  : `Email could not be sent: ${emailResult.message || "unknown reason"}`
+              );
+            } else {
+              showToast("success", "Guest invitation created successfully.");
+            }
             await refreshGuests();
           }}
           onClose={() => setAddModalOpen(false)}
@@ -748,7 +1064,7 @@ function AddGuestModal({
 }: {
   eventId: string;
   availableSeats: AvailableSeat[];
-  onSuccess: () => void;
+  onSuccess: (emailResult?: { emailed: boolean; message?: string; invitationUrl?: string; whatsappUrl?: string }) => void;
   onClose: () => void;
 }) {
   const t = useTranslations("Events");
@@ -802,7 +1118,16 @@ function AddGuestModal({
         return;
       }
 
-      onSuccess();
+      onSuccess(
+        sendEmail && email.trim()
+          ? {
+              emailed: Boolean(data.emailSent),
+              message: data.emailMessage,
+              invitationUrl: data.invitationUrl,
+              whatsappUrl: data.whatsappUrl,
+            }
+          : undefined
+      );
     } catch {
       setError("Network error. Please try again.");
     } finally {

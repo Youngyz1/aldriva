@@ -16,6 +16,7 @@ type InviteRow = {
   invited_by: string | null;
   status: string;
   expires_at: string;
+  is_accountless: boolean;
 };
 
 async function getSessionUser() {
@@ -28,6 +29,12 @@ async function getSessionUser() {
 
 // Shared guards: pending + unexpired + email match. No state change.
 function guardInvite(invite: InviteRow, userEmail: string) {
+  if (invite.is_accountless) {
+    return NextResponse.json(
+      { error: "This invitation must be accepted through its phone verification link." },
+      { status: 400 }
+    );
+  }
   if (invite.status !== "pending") {
     return NextResponse.json(
       { error: `This invitation has already been ${invite.status}.` },
@@ -76,7 +83,7 @@ export async function GET(req: NextRequest) {
     // Hash-compare: only token_hash is stored (migration 166).
     const { data: invite, error: fetchErr } = await admin
       .from("event_team_invitations")
-      .select("id, event_id, email, role, role_label, position_label, staff_name, entrance_id, invited_by, status, expires_at")
+      .select("id, event_id, email, role, role_label, position_label, staff_name, entrance_id, invited_by, status, expires_at, is_accountless")
       .eq("token_hash", hashInviteToken(token))
       .maybeSingle();
 
@@ -142,7 +149,7 @@ export async function POST(req: NextRequest) {
     // 1. Fetch pending invitation by token hash (migration 166).
     const { data: invite, error: fetchErr } = await admin
       .from("event_team_invitations")
-      .select("id, event_id, email, role, role_label, position_label, staff_name, entrance_id, invited_by, status, expires_at")
+      .select("id, event_id, email, role, role_label, position_label, staff_name, entrance_id, invited_by, status, expires_at, is_accountless")
       .eq("token_hash", hashInviteToken(token))
       .maybeSingle();
 

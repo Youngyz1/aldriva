@@ -60,3 +60,10 @@ next-env.d.ts
 playwright-report/
 test-results/
 qa-results.json
+
+# local scratch, QA state and build checks
+work/
+
+# Layer-4 (and future) local QA/visual-proof screenshots: evidence artifacts,
+# not source. Keep outside the repo (see C:\Users\Youngyz\layer4-renders\).
+docs/minimalism-dark-blue/renders/

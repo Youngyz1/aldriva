@@ -61,7 +61,7 @@ export const ScheduleItemSchema = z.object({
   badge: z.string().max(40, "Badge must be at most 40 characters").optional().nullable(),
   day: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
   dayLabel: z.string().max(40, "Day label must be at most 40 characters").optional().nullable(),
-  icon: z.enum(["dining", "champagne", "cake", "dancing", "gift", "hand"]).optional().nullable(),
+  icon: z.enum(["dining", "champagne", "cake", "dancing", "gift", "hand", "ceremony", "cocktail"]).optional().nullable(),
 }).refine((item) => Boolean(item.title || item.label), {
   message: "Event title is required",
   path: ["title"],
@@ -123,7 +123,7 @@ export const WeddingStoryItemSchema = z.object({
 // ── Draft Schema ─────────────────────────────────────────────────────────
 
 export const InvitationPageDraftSchema = z.object({
-  template_id: z.string().min(1, "Template ID is required").default("gala-editorial"),
+  template_id: z.string().default(""),
   locale: z.enum(["en", "fr"]).default("en"),
   blocks_layout: InvitationBlocksLayoutSchema.optional().nullable(),
 
@@ -189,7 +189,7 @@ export const InvitationPageDraftSchema = z.object({
   wedding_story: z.array(WeddingStoryItemSchema).optional().nullable(),
 }).superRefine((draft, ctx) => {
   const definition = getInvitationTemplateDefinition(draft.template_id);
-  const isEvergreen = draft.template_id === "evergreen-envelope";
+  const isEvergreen = false;
   if ((draft.venues?.length ?? 0) > (isEvergreen ? 8 : 3)) {
     ctx.addIssue({ code: "custom", path: ["venues"], message: `This template supports at most ${isEvergreen ? 8 : 3} venue locations.` });
   }
@@ -293,29 +293,6 @@ export function validateForPublish(
       field: "template_id",
       message: isFr ? "Un modèle d'invitation doit être sélectionné." : "A template must be selected.",
     });
-  }
-
-  // 4. Template-specific required fields
-  if (draft.template_id === "wedding-romantic" || draft.template_id === "luxe-editorial") {
-    if (!draft.partner1_name || !draft.partner1_name.trim()) {
-      errors.push({
-        field: "partner1_name",
-        message: isFr ? "Le premier prénom des mariés est requis." : "Partner 1 name is required.",
-      });
-    }
-    if (!draft.partner2_name || !draft.partner2_name.trim()) {
-      errors.push({
-        field: "partner2_name",
-        message: isFr ? "Le second prénom des mariés est requis." : "Partner 2 name is required.",
-      });
-    }
-  } else if (draft.template_id === "birthday-bold") {
-    if (!draft.celebrant_name || !draft.celebrant_name.trim()) {
-      errors.push({
-        field: "celebrant_name",
-        message: isFr ? "Le nom de la personne célébrée est requis." : "Celebrant name is required.",
-      });
-    }
   }
 
   // 5. Check if event is imported (Eventbrite) without date confirmation

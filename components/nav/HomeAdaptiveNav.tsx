@@ -13,10 +13,12 @@ export default function HomeAdaptiveNav() {
   const NAV_ITEMS = [
     { label: t('home'), href: "/" },
     { label: t('events'), href: "/events" },
+    { label: t('invitations'), href: "/invitations/templates" },
     { label: t('fundraisers'), href: "/fundraisers" },
     { label: t('articles'), href: "/articles" },
     { label: t('businesses'), href: "/businesses" },
     { label: t('shop'), href: "/products" },
+    { label: t('templates'), href: "/templates" },
   ] as const;
 
   function getActiveLabel(pathname: string): string {

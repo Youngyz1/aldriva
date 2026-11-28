@@ -9,6 +9,7 @@ import type { Capability } from "./business-taxonomy";
 import { getCapabilitiesForBusiness } from "./business-taxonomy";
 import { FLAGSHIP_TEMPLATES } from "./website-template-v2";
 import { getBuiltStorefrontFeaturesFromTemplates, resolveStorefrontFeatures } from "./storefront-features";
+import { MODULE_REGISTRY } from "./dashboard/modules";
 
 export type BusinessModule = {
   key: string;

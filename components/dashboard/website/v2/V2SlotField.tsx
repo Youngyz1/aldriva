@@ -29,7 +29,40 @@ const DAYS = [
   ["mon", "monday"], ["tue", "tuesday"], ["wed", "wednesday"],
   ["thu", "thursday"], ["fri", "friday"], ["sat", "saturday"], ["sun", "sunday"],
 ] as const;
-const SOCIALS = [["instagram", "Instagram"], ["facebook", "Facebook"], ["tiktok", "TikTok"], ["x", "X"]] as const;
+const SOCIALS = [
+  ["instagram", "Instagram"],
+  ["facebook", "Facebook"],
+  ["tiktok", "TikTok"],
+  ["x", "X"],
+  ["linkedin", "LinkedIn"],
+  ["youtube", "YouTube"],
+] as const;
+
+const SOCIAL_DOMAINS: Record<string, string[]> = {
+  instagram: ["instagram.com"],
+  facebook: ["facebook.com", "fb.com"],
+  tiktok: ["tiktok.com"],
+  x: ["x.com", "twitter.com"],
+  linkedin: ["linkedin.com"],
+  youtube: ["youtube.com", "youtu.be"],
+};
+
+function socialHostname(url: string): string | undefined {
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  try {
+    const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    return new URL(withScheme).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+function detectSocialNetwork(host: string): string | undefined {
+  return Object.keys(SOCIAL_DOMAINS).find((net) =>
+    SOCIAL_DOMAINS[net].some((domain) => host === domain || host.endsWith(`.${domain}`))
+  );
+}
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -102,30 +135,43 @@ export function V2SlotField({
       {label}
       {showSample ? <p className="-mt-1 text-xs text-amber-700 dark:text-amber-300">Sample: type to replace.</p> : null}
 
-      {(control.kind === "text" || control.kind === "url") && control.field !== "nav_labels" ? (
-        <>
-          <input
-            className={inputClass}
-            type={urlField ? "url" : "text"}
-            value={urlField && urlDraft !== null ? urlDraft : scalarText}
-            maxLength={urlField ? BLOCK_LIMITS.URL_MAX_LENGTH : maxText}
-            onChange={(event) => {
-              const next = event.currentTarget.value;
-              if (urlField) setUrlDraft(next);
-              else onChange(next);
-            }}
-            onBlur={() => {
-              if (!urlField || urlDraft === null) return;
-              const clean = urlDraft.trim() ? sanitizeUrl(urlDraft) : "";
-              onChange(clean);
-              setUrlDraft(null);
-            }}
-            aria-label={control.label}
-          />
-          {maxText ? <Counter current={scalarText.length} max={maxText} /> : null}
-          {urlField ? <><Counter current={(urlDraft ?? scalarText).length} max={BLOCK_LIMITS.URL_MAX_LENGTH} /><p className="text-[11px] text-zinc-500">Links are cleaned before they are saved.</p></> : null}
-        </>
-      ) : null}
+      {(control.kind === "text" || control.kind === "url") && control.field !== "nav_labels" ? (() => {
+        const patternInvalid = !urlField && Boolean(control.pattern) && scalarText.length > 0 && !new RegExp(control.pattern!).test(scalarText);
+        return (
+          <>
+            <input
+              className={`${inputClass}${patternInvalid ? " border-rose-500 focus:border-rose-500 focus:ring-rose-500/20" : ""}`}
+              type={urlField ? "url" : "text"}
+              value={urlField && urlDraft !== null ? urlDraft : scalarText}
+              maxLength={urlField ? BLOCK_LIMITS.URL_MAX_LENGTH : maxText}
+              onChange={(event) => {
+                const next = event.currentTarget.value;
+                if (urlField) setUrlDraft(next);
+                else onChange(next);
+              }}
+              onBlur={() => {
+                if (!urlField || urlDraft === null) return;
+                const clean = urlDraft.trim() ? sanitizeUrl(urlDraft) : "";
+                onChange(clean);
+                setUrlDraft(null);
+              }}
+              aria-label={control.label}
+            />
+            {patternInvalid && control.validationMessage ? (
+              <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{control.validationMessage}</p>
+            ) : null}
+            {control.slotIds?.includes("contact.whatsapp") ? (
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {locale === "fr"
+                  ? "Indiquez l'indicatif du pays, par ex. 2250712345678."
+                  : "Include the country code, e.g. 2250712345678."}
+              </p>
+            ) : null}
+            {maxText ? <Counter current={scalarText.length} max={maxText} /> : null}
+            {urlField ? <><Counter current={(urlDraft ?? scalarText).length} max={BLOCK_LIMITS.URL_MAX_LENGTH} /><p className="text-[11px] text-zinc-500">Links are cleaned before they are saved.</p></> : null}
+          </>
+        );
+      })() : null}
 
       {control.kind === "textarea" ? (
         <>
@@ -202,6 +248,13 @@ export function V2SlotField({
 
       {control.kind === "images" ? (
         <div className="space-y-4">
+          {control.slotIds?.includes("hero.images") ? (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              {locale === "fr"
+                ? "Toutes les proportions fonctionnent et la photo est affichée en entier. Les photos larges (16:9, au moins 1600 x 900 px) remplissent le mieux le cadre."
+                : "Any shape works and is shown whole. Wide photos (16:9, at least 1600x900) fill the frame best."}
+            </p>
+          ) : null}
           {(Array.isArray(value) ? value : []).map((image, index) => (
             <div key={`image-${index}`} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
               <div className="mb-2 flex items-center justify-between text-xs font-medium text-zinc-600 dark:text-zinc-300">Photo {index + 1}<button type="button" className="text-rose-600" onClick={() => onChange((value as unknown[]).filter((_, itemIndex) => itemIndex !== index))}>Remove</button></div>
@@ -295,9 +348,21 @@ export function V2SlotField({
 
       {control.kind === "socials" ? (() => {
         const socials = record(value);
+        const labelFor = (net: string) => SOCIALS.find(([n]) => n === net)?.[1] ?? net;
         return <div className="space-y-3">{SOCIALS.map(([network, networkLabel]) => {
           const current = typeof socials[network] === "string" ? socials[network] as string : "";
-          return <label key={network} className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">{networkLabel}<input className={`${inputClass} mt-1`} type="url" value={current} maxLength={BLOCK_LIMITS.URL_MAX_LENGTH} onChange={(event) => onChange({ ...socials, [network]: event.currentTarget.value })} onBlur={() => onChange({ ...socials, [network]: current.trim() ? sanitizeUrl(current) : "" })} /><Counter current={current.length} max={BLOCK_LIMITS.URL_MAX_LENGTH} /></label>;
+          const host = socialHostname(current);
+          const detected = host ? detectSocialNetwork(host) : undefined;
+          const mismatch = detected && detected !== network ? labelFor(detected) : undefined;
+          return <label key={network} className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">{networkLabel}<input className={`${inputClass} mt-1`} type="url" value={current} maxLength={BLOCK_LIMITS.URL_MAX_LENGTH} onChange={(event) => onChange({ ...socials, [network]: event.currentTarget.value })} onBlur={() => onChange({ ...socials, [network]: current.trim() ? sanitizeUrl(current) : "" })} /><Counter current={current.length} max={BLOCK_LIMITS.URL_MAX_LENGTH} />
+            {mismatch ? (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                {locale === "fr"
+                  ? `Cela ressemble à un lien ${mismatch}. Collez-le dans le champ ${mismatch}.`
+                  : `This looks like a ${mismatch} link. Paste it in the ${mismatch} field.`}
+              </p>
+            ) : null}
+          </label>;
         })}</div>;
       })() : null}
 

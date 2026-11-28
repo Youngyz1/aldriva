@@ -64,6 +64,10 @@ export interface ResolvedProductItem {
   stripe_price_id: string | null;
   /** ISO timestamp for newest-first sorting; null when unknown. */
   created_at?: string | null;
+  /** Server-computed: true when created within 14 days. Never use Date.now() during render. */
+  is_new?: boolean;
+  /** Server-computed: true when item has "popular" tag or is featured. */
+  is_popular?: boolean;
 }
 
 export interface ResolvedFundraiserItem {
@@ -84,7 +88,7 @@ export interface ResolvedServiceItem {
   title: string;
   slug: string;
   description: string | null;
-  price: number;
+  price: number | null;
   duration_minutes: number | null;
   image_url: string | null;
   is_active: boolean;
@@ -113,6 +117,10 @@ export interface ResolvedMenuItem {
   is_active: boolean;
   is_featured: boolean;
   isDraft: boolean;
+  /** Server-computed: true when created within 14 days. */
+  is_new?: boolean;
+  /** Server-computed: true when item has "popular" tag or is featured. */
+  is_popular?: boolean;
 }
 
 export interface ResolvedMenuSection {
@@ -256,30 +264,41 @@ export async function resolveProductsEmbed(
     return [];
   }
 
-  return data.map((item) => ({
-    id: item.id,
-    name: item.name,
-    slug: item.slug,
-    description: item.description,
-    images: Array.isArray(item.images) ? item.images : [],
-    price_type: item.price_type,
-    stock_quantity:
-      item.stock_quantity != null ? Number(item.stock_quantity) : null,
-    status: item.status,
-    isDraft: item.status !== "active",
-    category:
-      typeof item.category === "string" && item.category.trim() !== ""
-        ? item.category.trim()
-        : null,
-    tags: Array.isArray(item.tags)
+  const nowMs = Date.now();
+  const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
+
+  return data.map((item) => {
+    const tags = Array.isArray(item.tags)
       ? item.tags.filter((tag): tag is string => typeof tag === "string" && tag.trim() !== "")
-      : [],
-    stripe_price_id:
-      typeof item.stripe_price_id === "string" && item.stripe_price_id.trim() !== ""
-        ? item.stripe_price_id.trim()
-        : null,
-    created_at: typeof item.created_at === "string" ? item.created_at : null,
-  }));
+      : [];
+    const isNew = typeof item.created_at === "string" ? nowMs - new Date(item.created_at).getTime() <= fourteenDaysMs : false;
+    const isPopular = tags.some((tag) => tag.toLowerCase() === "popular");
+
+    return {
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      description: item.description,
+      images: Array.isArray(item.images) ? item.images : [],
+      price_type: item.price_type,
+      stock_quantity:
+        item.stock_quantity != null ? Number(item.stock_quantity) : null,
+      status: item.status,
+      isDraft: item.status !== "active",
+      category:
+        typeof item.category === "string" && item.category.trim() !== ""
+          ? item.category.trim()
+          : null,
+      tags,
+      stripe_price_id:
+        typeof item.stripe_price_id === "string" && item.stripe_price_id.trim() !== ""
+          ? item.stripe_price_id.trim()
+          : null,
+      created_at: typeof item.created_at === "string" ? item.created_at : null,
+      is_new: isNew,
+      is_popular: isPopular,
+    };
+  });
 }
 
 /**
@@ -355,7 +374,7 @@ export async function resolveServicesEmbed(
     title: item.title,
     slug: item.slug,
     description: item.description ?? null,
-    price: Number(item.price),
+    price: item.price === null || item.price === undefined ? null : Number(item.price),
     duration_minutes: item.duration_minutes ?? null,
     image_url: item.image_url ?? null,
     is_active: Boolean(item.is_active),
@@ -408,6 +427,8 @@ export async function resolveMenuEmbed(
     ? await loadMenuPromotions(supabase, tenantId, { includeCodes: false, status: "active", context: "resolveMenuEmbed" })
     : { promotions: [], error: null, missingSchema: false };
   const promotionNow = new Date();
+  const nowMs = promotionNow.getTime();
+  const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
   const publicPromotions = promotionLoad.promotions.filter((promotion) => isPromotionActive(promotion, promotionNow));
   let assignments: any[] = [];
   if (normalizedSchemaAvailable && returnedItemIds.length > 0) {
@@ -493,6 +514,7 @@ export async function resolveMenuEmbed(
       currency,
       variantPrice: selectedVariant ? Number(selectedVariant.price) : undefined,
     });
+    const isNew = typeof it.created_at === "string" ? nowMs - new Date(it.created_at).getTime() <= fourteenDaysMs : false;
     const mapped: ResolvedMenuItem = {
       id: it.id,
       section_id: it.section_id,
@@ -515,6 +537,8 @@ export async function resolveMenuEmbed(
       is_active: Boolean(it.is_active),
       is_featured: Boolean(it.is_featured),
       isDraft: !it.is_active,
+      is_new: isNew,
+      is_popular: Boolean(it.is_featured),
     };
     // For public, filter items where parent section is inactive already handled by sectionQuery, but double-check
     sectionItems.push(mapped);
@@ -555,8 +579,38 @@ export async function resolvePromotionsEmbed(
   });
   if (result.error) return [];
   const now = new Date();
-  return result.promotions
-    .filter((promotion) => isPromotionActive(promotion, now) && (promotion.targets?.length ?? 0) > 0)
+  const isCarousel = block.variant === "carousel";
+  const activePromotions = result.promotions.filter((promotion) => {
+    if (!isPromotionActive(promotion, now)) return false;
+    if (promotion.offer_type === "highlight") {
+      return isCarousel;
+    }
+    return (promotion.targets?.length ?? 0) > 0;
+  });
+
+  if (block.variant === "carousel") {
+    const sorted = [...activePromotions].sort((a, b) => {
+      const prioA = a.priority ?? 0;
+      const prioB = b.priority ?? 0;
+      if (prioB !== prioA) return prioB - prioA;
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return timeB - timeA;
+    });
+    return sorted
+      .filter((promotion) => promotion.layout === "banner" || promotion.layout === "dish_card")
+      .slice(0, 5)
+      .map((promotion) => {
+        const href = getMenuPromotionDestination(promotion, options);
+        return {
+          ...promotion,
+          destination_href: href,
+          destination_external: promotion.destination_type === "external" && Boolean(href),
+        };
+      });
+  }
+
+  return activePromotions
     .map((promotion) => {
       const href = getMenuPromotionDestination(promotion, options);
       return {

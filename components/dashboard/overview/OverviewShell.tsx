@@ -1,74 +1,77 @@
 "use client";
 
-import { useEffect, useTransition } from "react";
+/**
+ * components/dashboard/overview/OverviewShell.tsx
+ *
+ * Padding-free, mobile-first workspace overview container.
+ * docs/design/dashboard-overview/01-overview-anatomy.md §3.
+ * Layout owns padding; shell owns max-width and auto-refresh.
+ */
+
+import React, { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { IconRotateClockwise as RotateCw } from "@tabler/icons-react";
 
 export interface OverviewShellProps {
-  title: string;
-  subtitle?: string;
-  badge?: string;
+  workspaceName: string;
+  header?: React.ReactNode;
   children: React.ReactNode;
+  className?: string;
+  refreshInterval?: number;
 }
 
 export function OverviewShell({
-  title,
-  subtitle,
-  badge,
+  workspaceName,
+  header,
   children,
+  className = "",
+  refreshInterval = 60_000,
 }: OverviewShellProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const [minutesAgo, setMinutesAgo] = useState(0);
 
-  // 60-second auto-refresh when the tab is visible
+  // Auto-refresh when tab is visible
   useEffect(() => {
-    const interval = setInterval(() => {
+    let lastRefresh = Date.now();
+
+    const refreshTimer = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         startTransition(() => {
           router.refresh();
+          lastRefresh = Date.now();
+          setMinutesAgo(0);
         });
       }
-    }, 60_000);
+    }, refreshInterval);
 
-    return () => clearInterval(interval);
-  }, [router]);
+    const minutesTimer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - lastRefresh) / 60_000);
+      setMinutesAgo(elapsed);
+    }, 30_000);
 
-  function handleManualRefresh() {
-    startTransition(() => {
-      router.refresh();
-    });
-  }
+    return () => {
+      clearInterval(refreshTimer);
+      clearInterval(minutesTimer);
+    };
+  }, [router, refreshInterval]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6">
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-zinc-200/80 pb-5">
-        <div>
-          {badge && (
-            <p className="text-xs font-black uppercase tracking-wider text-orange-600 mb-0.5">
-              {badge}
-            </p>
-          )}
-          <h1 className="text-2xl font-black tracking-tight sm:text-3xl text-zinc-950">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="mt-1 text-sm font-medium text-zinc-500">{subtitle}</p>
-          )}
+    <div className={`w-full max-w-6xl mx-auto ${className}`}>
+      {/* Accessible document outline heading */}
+      <h1 className="sr-only">{workspaceName} Overview</h1>
+
+      {header}
+
+      <div className="space-y-6 pt-4">
+        {children}
+
+        {/* Refresh status indicator */}
+        <div className="pt-4 pb-2 text-center">
+          <p className="text-[11px] font-medium text-zinc-400">
+            {minutesAgo === 0 ? "Updated just now" : `Updated ${minutesAgo}m ago`} · Auto-refreshes every 60s
+          </p>
         </div>
-
-        <button
-          type="button"
-          onClick={handleManualRefresh}
-          disabled={isPending}
-          className="inline-flex min-h-[44px] items-center gap-2 self-start sm:self-auto rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-bold text-zinc-700 shadow-xs hover:bg-zinc-50 transition active:scale-95 disabled:opacity-50"
-          title="Refresh dashboard"
-        >
-          <RotateCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin text-orange-600" : "text-zinc-500"}`} />
-          <span>Refresh</span>
-        </button>
-      </header>
-
-      <div className="space-y-6">{children}</div>
+      </div>
     </div>
   );
 }

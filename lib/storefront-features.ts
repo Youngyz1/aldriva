@@ -47,12 +47,33 @@ export interface ResolvedStorefrontFeatures extends StorefrontFeatureState {
   reasons: Partial<Record<StorefrontFeature, string>>;
 }
 
-/** Payment-gateway supported currencies for online card payment (Phase 3: USD only). */
+/**
+ * Card charge currencies enabled for the central Aldriva Stripe merchant.
+ * Only USD is enabled until the platform account's charge/settlement
+ * capabilities are confirmed from its Stripe configuration.
+ */
 export const ONLINE_PAYMENT_CURRENCIES: readonly string[] = ["USD"];
 
 export function isOnlinePaymentCurrencySupported(currency: unknown): boolean {
   if (typeof currency !== "string") return false;
   return ONLINE_PAYMENT_CURRENCIES.includes(currency.trim().toUpperCase());
+}
+
+export function resolveStorefrontCheckoutPaymentState(input: {
+  currency: string | null | undefined;
+  onlinePayment: boolean;
+  tableId?: string | null;
+  tableOrderingMode?: string | null;
+}) {
+  const canPayOnline = input.onlinePayment && isOnlinePaymentCurrencySupported(input.currency);
+  const isPayOnlineFirst = Boolean(input.tableId && input.tableOrderingMode === "pay_online_first");
+
+  return {
+    canPayOnline,
+    isPayOnlineFirst,
+    canSubmitOrder: !isPayOnlineFirst || canPayOnline,
+    initialPaymentMethod: isPayOnlineFirst && canPayOnline ? "online" as const : "fulfilment" as const,
+  };
 }
 
 export function isFulfilmentMissing(offerings: readonly string[] | null | undefined): boolean {
@@ -403,7 +424,7 @@ export function getBuiltStorefrontFeatures(
     ordering,
     pickup: ordering,
     delivery: ["delivery_selector", "delivery_checkout", "menu_order"].some((block) => blocks.has(block)),
-    reservations: ["reservation_form", "table_reservations", "reservations"].some((block) => blocks.has(block)),
+    reservations: ["reservation_form", "table_reservations", "reservations", "general_booking_form"].some((block) => blocks.has(block)),
     // Online payment renders inside the ordering checkout surface, so it is
     // built wherever ordering is built. Currency support is resolved per
     // site at call time, not from the manifest.
@@ -428,4 +449,21 @@ export function storefrontFeatureForOffering(key: string): StorefrontFeature | u
   if (key === "pickup") return "pickup";
   if (key === "table_reservations") return "reservations";
   return undefined;
+}
+
+/**
+ * General bookings (appointments) are live when the business has the BOOKINGS
+ * or APPOINTMENTS capability, booking settings are enabled, and approval is
+ * not explicitly false. Table reservations keep their own condition exactly.
+ */
+export function isGeneralBookingsLive(
+  capabilities: readonly string[],
+  settingsEnabled: boolean,
+  reservationsApproved: boolean | null | undefined
+): boolean {
+  const caps = new Set(capabilities);
+  if (!caps.has("BOOKINGS") && !caps.has("APPOINTMENTS")) return false;
+  if (!settingsEnabled) return false;
+  if (reservationsApproved === false) return false;
+  return true;
 }

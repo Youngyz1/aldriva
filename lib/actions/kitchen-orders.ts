@@ -15,7 +15,7 @@ const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 export type KitchenTransitionResult =
   | { success: true; nextStatus: "preparing" | "ready" }
-  | { success: false; error: "unauthorized" | "forbidden" | "invalid_transition" | "not_found" | "order_already_updated" | "db_error" };
+  | { success: false; error: "unauthorized" | "forbidden" | "invalid_transition" | "not_found" | "order_already_updated" | "online_payment_required" | "db_error"; message?: string };
 
 function renewSessionCookie(
   cookieStore: Awaited<ReturnType<typeof cookies>>,
@@ -102,5 +102,12 @@ export async function transitionKitchenOrder(
 
   if (result.success) return { success: true, nextStatus };
   if (result.error === "order_already_updated") return { success: false, error: "order_already_updated" };
+  if (result.error === "online_payment_required") {
+    return {
+      success: false,
+      error: "online_payment_required",
+      message: "Complete online payment before this order can be accepted, prepared, or sent for delivery.",
+    };
+  }
   return { success: false, error: "db_error" };
 }

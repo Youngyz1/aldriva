@@ -79,6 +79,34 @@ export function getWebsiteBackgroundPattern(template: WebsiteTemplateV2, metadat
     : "none";
 }
 
+/**
+ * Validates a draft's stored appearance choice (the
+ * template_extras.websiteAppearance shape: {paletteId, backgroundPattern})
+ * against the template's current palette/pattern definitions, falling back
+ * to the template default rather than treating an unsupported value as an
+ * error. The one source saveV2WebsiteAppearanceDraft and publishContentDraft
+ * both call, so a value that validated when saved but no longer matches
+ * (template palettes changed since) self-heals on the next save instead of
+ * permanently blocking publish. Returns null only when the template has no
+ * palette support at all — nothing to resolve.
+ */
+export function resolveStoredWebsiteAppearance(
+  template: WebsiteTemplateV2,
+  raw: unknown
+): { paletteId: string; backgroundPattern: "none" | "dots" } | null {
+  if (!template.palettes?.length) return null;
+  const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  const paletteId = typeof value.paletteId === "string" && template.palettes.some((palette) => palette.id === value.paletteId)
+    ? value.paletteId
+    : template.defaultPaletteId ?? template.palettes[0].id;
+  const backgroundPattern = template.patterns?.length
+    ? (typeof value.backgroundPattern === "string" && template.patterns.some((pattern) => pattern.id === value.backgroundPattern)
+        ? value.backgroundPattern as "none" | "dots"
+        : "none")
+    : "none";
+  return { paletteId, backgroundPattern };
+}
+
 export function getWebsiteBackgroundPatternStyle(
   template: WebsiteTemplateV2,
   pattern: "none" | "dots"
@@ -154,16 +182,6 @@ export function resolveStorefrontCurrency(
       if (explicit) return explicit;
     }
   }
-  if (typeof businessCountry === "string") {
-    const normalized = businessCountry
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim()
-      .toLowerCase();
-    if (normalized === "cote d'ivoire" || normalized === "ivory coast" || normalized === "ci") {
-      return "XOF";
-    }
-  }
   return "USD";
 }
 
@@ -182,6 +200,7 @@ export function v2ThemeStyle(
     : undefined;
   const isTableFlame = template.id === "restaurant-table-flame";
   const isSavannah = template.id === "restaurant-savannah";
+  const isShowcase = template.id === "showcase";
   const accentId = readAccentId(metadata) ?? template.defaultAccentId;
   const accentPalette = getPublicAccentPalette(accentId);
   const hasExplicitPaletteChoice = typeof readBrandValue(metadata, "paletteId") === "string" &&
@@ -206,8 +225,11 @@ export function v2ThemeStyle(
   const hover = roles?.accentDeep ?? accentPalette?.hover ?? primary;
   const light = roles?.accentLight ?? accentPalette?.light ?? "#fbe9e3";
   const foreground = roles?.onAccent ?? (isTableFlame ? readableOn(primary, ["#090909", "#faf6ef"]) : accentPalette?.foreground ?? "#ffffff");
+  const showcaseSansFont = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
   const savannahFont = "'Helvetica Neue', Helvetica, var(--font-arimo), Arial, sans-serif";
-  const headingFont = isSavannah
+  const headingFont = isShowcase
+    ? showcaseSansFont
+    : isSavannah
     ? savannahFont
     : isTableFlame
     ? "var(--font-fraunces), Georgia, 'Times New Roman', serif"
@@ -222,6 +244,14 @@ export function v2ThemeStyle(
     "--site-bg": roles?.base ?? template.templateBackground.base,
     "--v2-heading-font": headingFont,
     ...(isSavannah ? { "--ps-font-body": savannahFont, "--ps-font-heading": headingFont } : {}),
+    ...(isShowcase ? {
+      "--ps-font-body": showcaseSansFont,
+      "--ps-font-heading": showcaseSansFont,
+      "--site-font": showcaseSansFont,
+      fontFamily: showcaseSansFont,
+      "--site-card-radius": "16px",
+      "--ps-card-radius": "16px",
+    } : {}),
     "--ps-accent": primary,
     "--ps-accent-hover": hover,
     "--ps-accent-light": light,
@@ -259,9 +289,12 @@ export function v2ThemeStyle(
       "--ps-card-radius": "12px",
       "--ps-card-shadow": "none",
       "--ps-card-border": `1px solid ${roles.border}`,
-      ...(isSavannah ? {
+      ...(isSavannah || isShowcase ? {
         "--tf-soft": roles.soft ?? roles.subtle,
         "--tf-on-soft": roles.onSoft,
+      } : {}),
+      ...(isShowcase ? {
+        "--tf-card": "#FFFFFF",
       } : {}),
       ...(isSavannah ? {
         "--site-card-radius": "0px",

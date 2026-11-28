@@ -139,15 +139,25 @@ export function TemplateSwitchDialog({
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {targets.map((target) => (
-                <button
+                <div
                   key={target.id}
-                  type="button"
+                  role="button"
+                  tabIndex={target.isCurrent ? -1 : 0}
                   aria-pressed={activeId === target.id}
-                  disabled={target.isCurrent}
+                  aria-disabled={target.isCurrent}
                   onClick={() => setSelectedId(target.id)}
+                  onKeyDown={(event) => {
+                    if (target.isCurrent) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSelectedId(target.id);
+                    }
+                  }}
                   className={`overflow-hidden rounded-xl border text-left transition ${activeId === target.id ? "border-orange-600 ring-1 ring-orange-600" : "border-zinc-200 hover:border-zinc-300"} ${target.isCurrent ? "opacity-70" : ""}`}
                 >
-                  <V2TemplateGalleryPreviewFrame>{previews[target.id]}</V2TemplateGalleryPreviewFrame>
+                  <div className="pointer-events-none" aria-hidden="true">
+                    <V2TemplateGalleryPreviewFrame>{previews[target.id]}</V2TemplateGalleryPreviewFrame>
+                  </div>
                   <div className="space-y-1 p-3">
                     <p className="text-sm font-bold">
                       {target.id === "food-order" ? publicT("foodOrderTemplateName") : target.id === "store" ? publicT("storeTemplateName") : target.name}
@@ -155,7 +165,7 @@ export function TemplateSwitchDialog({
                     </p>
                     <p className="text-xs text-zinc-500">{target.description}</p>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
 

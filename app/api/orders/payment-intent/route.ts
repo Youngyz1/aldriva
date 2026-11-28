@@ -7,13 +7,15 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
 import {
   createOnlineOrderPayment,
+  toPaymentIntentFailureResponse,
   type CreateOnlineOrderPaymentResult,
 } from "@/lib/storefront-order-payments";
 
 /**
  * POST /api/orders/payment-intent
  *
- * Guest online card payment for storefront orders (Phase 3, USD only).
+ * Guest online card payment for storefront orders (Phase 3). The charge
+ * currency must be in ONLINE_PAYMENT_CURRENCIES (lib/storefront-features.ts).
  * Creates an unpaid online order through the same repricing/validation as
  * submitOrderRequest, then a Stripe PaymentIntent for its DB total.
  * The webhook is the only source of truth for paid state.
@@ -21,7 +23,10 @@ import {
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json({ error: "Card payment is not configured." }, { status: 500 });
+      return NextResponse.json({
+        error: "Online card payment is not currently available.",
+        code: "stripe_not_configured",
+      }, { status: 503 });
     }
 
     // Payment-specific bucket first (card-testing bound), then the shared
@@ -54,6 +59,10 @@ export async function POST(req: NextRequest) {
       idempotencyKey,
       hp,
       scheduledFor,
+      tableId,
+      tableSessionId,
+      tableLabel,
+      guestTokenHash,
     } = body ?? {};
 
     const admin = createSupabaseAdmin();
@@ -75,18 +84,17 @@ export async function POST(req: NextRequest) {
         idempotencyKey: idempotencyKey ?? null,
         hp: hp ?? null,
         scheduledFor: scheduledFor ?? null,
+        tableId: tableId ?? null,
+        tableSessionId: tableSessionId ?? null,
+        tableLabel: tableLabel ?? null,
+        guestTokenHash: guestTokenHash ?? null,
       },
       { admin, stripe }
     );
 
     if (!result.success) {
-      const status =
-        result.error === "rate_limited" ? 429
-        : result.error === "website_not_found" ? 404
-        : result.error === "ordering_disabled" || result.error === "online_unavailable" ? 403
-        : result.error === "no_open_hours" ? 409
-        : 400;
-      return NextResponse.json({ error: result.message ?? "Could not start the payment.", code: result.error, itemId: result.itemId }, { status });
+      const failure = toPaymentIntentFailureResponse(result);
+      return NextResponse.json(failure.body, { status: failure.status });
     }
 
     return NextResponse.json({

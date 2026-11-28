@@ -28,6 +28,31 @@ export function resolveSiteHref(siteSlug: string | undefined, href: string): str
   return `${base}/${value}`;
 }
 
+/** Scope a multi-segment path (each segment encoded individually) to its tenant site. */
+export function getSiteSegmentsHref(siteSlug: string, segments: readonly string[]): string {
+  const base = getSiteBasePath(siteSlug);
+  if (segments.length === 0) return base;
+  return `${base}/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`;
+}
+
+/**
+ * A service detail page's Book button reuses the site's resolved primary
+ * action as-is: it only appends `?service=<id>` when that action actually
+ * points at the general booking page (`/book`); any other target (e.g.
+ * Contact) is passed through unchanged.
+ */
+export function resolveServiceDetailBookHref(
+  siteSlug: string,
+  serviceId: string,
+  primary: { href: string } | undefined
+): string | null {
+  if (!primary) return null;
+  const bookPagePath = getSiteSegmentsHref(siteSlug, ["book"]);
+  return primary.href === bookPagePath
+    ? `${primary.href}?service=${encodeURIComponent(serviceId)}`
+    : primary.href;
+}
+
 /** Return the tenant page slug represented by an already scoped internal href. */
 export function getSitePageSlug(siteSlug: string, href: string): string | undefined {
   const resolved = resolveSiteHref(siteSlug, href);

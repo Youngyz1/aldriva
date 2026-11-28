@@ -27,6 +27,7 @@ import { formatMoney } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
 import type { DashboardOrderItem } from "@/components/dashboard/orders/OrderCard";
 import { formatChosenMenuOption } from "@/lib/order-option-display";
+import { resolveTrackingPaymentLabel } from "@/lib/order-payment-label";
 
 export interface OrderTrackingData {
   orderNumber: string;
@@ -34,7 +35,9 @@ export interface OrderTrackingData {
   businessPhone: string | null;
   siteSlug: string;
   status: string;
-  fulfilmentType: "pickup" | "delivery" | string;
+  fulfilmentType: "pickup" | "delivery" | "dine_in" | string;
+  tableLabel?: string | null;
+  waiterConfirmationState?: "pending" | "confirmed" | "declined" | "not_applicable" | string | null;
   deliveryAddress: string | null;
   customerNote: string | null;
   currency: string;
@@ -43,6 +46,7 @@ export interface OrderTrackingData {
   totalAmount: number;
   paymentMethod: string;
   paymentStatus: string;
+  paymentExpiresAt: string | null;
   scheduledFor: string | null;
   estimatedReadyAt: string | null;
   cancellationReason: string | null;
@@ -63,10 +67,32 @@ export interface OrderTrackingData {
   createdAt: string;
   maskedCustomerName: string;
   maskedCustomerPhone: string;
+  /**
+   * Set when the order was placed while the business was closed and will be
+   * prepared from the next opening time (same clock time the server stored).
+   */
+  closedPreparedFrom?: string | null;
+}
+
+function formatTrackingDateTime(
+  value: string | null | undefined,
+  locale: string,
+  options: Intl.DateTimeFormatOptions
+): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return new Intl.DateTimeFormat(locale, options).format(date);
 }
 
 interface OrderTrackingViewProps {
   order: OrderTrackingData;
+}
+
+function formatClosedPreparedFrom(value: string, locale: string): string {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return value;
+  return new Intl.DateTimeFormat(locale, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
 const PICKUP_STEPS = [
@@ -83,6 +109,14 @@ const DELIVERY_STEPS = [
   { key: "picked_up", labelKey: "timelinePickedUp" },
   { key: "out_for_delivery", labelKey: "timelineOutForDelivery" },
   { key: "delivered", labelKey: "timelineDelivered" },
+] as const;
+
+const DINE_IN_STEPS = [
+  { key: "pending", labelKey: "timelineReceived" },
+  { key: "accepted", labelKey: "timelineAccepted" },
+  { key: "preparing", labelKey: "timelinePreparing" },
+  { key: "ready", labelKey: "timelineReady" },
+  { key: "completed", labelKey: "timelineCompleted" },
 ] as const;
 
 /* ── Step icon mapping ──────────────────────────────────────────────────── */
@@ -160,7 +194,7 @@ function getStepTime(
 }
 
 export function OrderTrackingView({ order }: OrderTrackingViewProps) {
-  const t = useTranslations("Orders") as unknown as (key: string) => string;
+  const t = useTranslations("Orders") as unknown as (key: string, values?: Record<string, string>) => string;
   const locale = useLocale() as Locale;
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
@@ -188,20 +222,39 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
   const isTerminal = ["completed", "delivered", "cancelled"].includes(order.status);
   const isOutForDelivery = order.status === "out_for_delivery";
   const isDelivered = order.status === "delivered" || order.status === "completed";
+  const isDelivery = order.fulfilmentType === "delivery";
+  const paymentLabel = resolveTrackingPaymentLabel({
+    payment_method: order.paymentMethod,
+    payment_status: order.paymentStatus,
+    payment_expires_at: order.paymentExpiresAt,
+    fulfilment_type: order.fulfilmentType,
+  });
+  const readyTimeDisplay = formatTrackingDateTime(order.estimatedReadyAt, locale === "fr" ? "fr-FR" : "en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const scheduledTimeDisplay = formatTrackingDateTime(order.scheduledFor, locale === "fr" ? "fr-FR" : "en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   // Hide the "Estimated ready at" banner when completed, delivered, cancelled, or out_for_delivery
-  const showEstimatedReadyBanner = Boolean(order.estimatedReadyAt) && !isTerminal && !isOutForDelivery;
+  const showEstimatedReadyBanner = Boolean(readyTimeDisplay) && !isTerminal && !isOutForDelivery;
 
   // Keep the "Scheduled for" banner only while still pending, accepted, preparing, or ready
-  const showScheduledBanner = Boolean(order.scheduledFor) && ["pending", "accepted", "preparing", "ready"].includes(order.status);
+  const showScheduledBanner = Boolean(scheduledTimeDisplay) && ["pending", "accepted", "preparing", "ready"].includes(order.status);
+  const showAsapTimingBanner = isDelivery && !order.scheduledFor && !readyTimeDisplay && ["pending", "accepted", "preparing"].includes(order.status);
 
   // Stepper steps based on fulfilment type
-  const isDelivery = order.fulfilmentType === "delivery";
+  const isDineIn = order.fulfilmentType === "dine_in";
   const canTrackCourier =
     isDelivery &&
     order.courierAssigned &&
     ["accepted", "preparing", "ready", "picked_up", "out_for_delivery"].includes(order.status);
-  const activeSteps = isDelivery ? DELIVERY_STEPS : PICKUP_STEPS;
+  const activeSteps = isDelivery ? DELIVERY_STEPS : (isDineIn ? DINE_IN_STEPS : PICKUP_STEPS);
   const stepIndex = activeSteps.findIndex((s) => s.key === order.status);
   const currentStep = stepIndex >= 0 ? stepIndex : (isDelivered ? activeSteps.length - 1 : 0);
 
@@ -282,13 +335,6 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
   }, [canTrackCourier, order.trackingToken]);
 
   // This is a kitchen preparation estimate, never a courier arrival estimate.
-  const readyTimeDisplay = order.estimatedReadyAt
-    ? new Date(order.estimatedReadyAt).toLocaleTimeString(locale === "fr" ? "fr-FR" : "en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
-
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 py-5 px-3.5 sm:px-6">
       <div className="max-w-xl mx-auto space-y-4">
@@ -386,11 +432,36 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
                 {order.orderNumber}
               </span>
               <span className="text-zinc-400">·</span>
-              <span className="text-zinc-500 dark:text-zinc-400 capitalize">
-                {order.fulfilmentType === "delivery" ? "Delivery" : "Pickup"}
+              <span className="text-zinc-500 dark:text-zinc-400">
+                {order.fulfilmentType === "dine_in"
+                  ? (order.tableLabel ? `Dine-In • Table ${order.tableLabel}` : "Dine-In")
+                  : order.fulfilmentType === "delivery"
+                  ? "Delivery"
+                  : "Pickup"}
+              </span>
+              <span className="text-zinc-400">·</span>
+              <span className="text-zinc-600 dark:text-zinc-300">
+                {t("payment")}: <strong className="font-semibold text-zinc-900 dark:text-zinc-100">{t(paymentLabel)}</strong>
               </span>
             </div>
           </div>
+
+          {/* ── Waiter Confirmation Alert for Dine-In ───────────────────────── */}
+          {order.fulfilmentType === "dine_in" && order.waiterConfirmationState === "pending" && !isTerminal && (
+            <div className="mx-4 mt-4 rounded-xl border border-amber-300 bg-amber-50/80 p-3.5 dark:border-amber-900 dark:bg-amber-950/30 text-left">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-amber-700 dark:text-amber-400 shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    Awaiting Staff Confirmation
+                  </p>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+                    Your table order has been sent to restaurant staff. A waiter will confirm your order at Table {order.tableLabel || ""} shortly.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── Estimated Ready / Scheduled Alerts ────────────────────────── */}
           {showEstimatedReadyBanner && (
@@ -407,6 +478,19 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
             </div>
           )}
 
+          {order.closedPreparedFrom ? (
+            <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 dark:border-amber-900 dark:bg-amber-950/30">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-amber-700 dark:text-amber-400 shrink-0" />
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                  {t("orderWhileClosed", {
+                    time: formatClosedPreparedFrom(order.closedPreparedFrom, locale === "fr" ? "fr-FR" : "en-US"),
+                  })}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           {showScheduledBanner && (
             <div className="mx-4 mt-4 rounded-xl border border-blue-200 bg-blue-50/80 p-3.5 dark:border-blue-900 dark:bg-blue-950/30">
               <div className="flex items-center gap-3">
@@ -414,18 +498,18 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
                 <div>
                   <p className="text-xs font-medium text-blue-800 dark:text-blue-300">{t("scheduledFor")}</p>
                   <p className="text-sm font-bold text-blue-950 dark:text-blue-100 mt-0.5">
-                    {new Date(order.scheduledFor!).toLocaleString(
-                      locale === "fr" ? "fr-FR" : "en-US",
-                      {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }
-                    )}
+                    {scheduledTimeDisplay}
                   </p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {showAsapTimingBanner && (
+            <div className="mx-4 mt-4 rounded-xl border border-orange-200 bg-orange-50/70 p-3.5 dark:border-orange-900 dark:bg-orange-950/30">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-orange-700 dark:text-orange-400 shrink-0" />
+                <p className="text-sm font-semibold text-orange-900 dark:text-orange-200">{t("asapReadyTimePending")}</p>
               </div>
             </div>
           )}
@@ -783,10 +867,16 @@ export function OrderTrackingView({ order }: OrderTrackingViewProps) {
             <MapPin className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
             <div className="text-xs">
               <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                {order.fulfilmentType === "delivery" ? t("address") : t("fulfilment")}
+                {order.fulfilmentType === "dine_in"
+                  ? "Dining Table"
+                  : order.fulfilmentType === "delivery"
+                  ? t("address")
+                  : t("fulfilment")}
               </p>
               <p className="text-zinc-600 dark:text-zinc-400 mt-0.5">
-                {order.deliveryAddress || order.maskedCustomerName}
+                {order.fulfilmentType === "dine_in"
+                  ? (order.tableLabel ? `Table ${order.tableLabel}` : "Dine-In Table")
+                  : (order.deliveryAddress || order.maskedCustomerName)}
               </p>
               {order.customerNote && (
                 <p className="mt-1 text-zinc-500 italic">

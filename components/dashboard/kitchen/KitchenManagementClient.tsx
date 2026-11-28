@@ -18,6 +18,7 @@ import { CookPerformancePanel } from "@/components/dashboard/kitchen/CookPerform
 import { CourierPerformancePanel } from "@/components/dashboard/kitchen/CourierPerformancePanel";
 import { ExpandablePersonnelRecord } from "@/components/dashboard/kitchen/ExpandablePersonnelRecord";
 import { ProgressiveDisclosure } from "@/components/dashboard/kitchen/ProgressiveDisclosure";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   createKitchen,
   deactivateCook,
@@ -95,22 +96,21 @@ export function KitchenManagementClient({ organizerId, businesses, courierBusine
   const [error, setError] = useState("");
   const [oneTimeLink, setOneTimeLink] = useState<OneTimeLink | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [addCookBusinessId, setAddCookBusinessId] = useState<string | null>(null);
   const [pendingCookAction, setPendingCookAction] = useState<PendingCookAction>(null);
 
   function revealLink(label: string, path: string, token: string) {
     setOneTimeLink({ label, url: `${window.location.origin}${path}#${token}` });
     setCopied(false);
+    setCopyFailed(false);
   }
 
   async function copyLink() {
     if (!oneTimeLink) return;
-    try {
-      await navigator.clipboard.writeText(oneTimeLink.url);
-      setCopied(true);
-    } catch {
-      setError("Copy was blocked by the browser. Select and copy the link above.");
-    }
+    const succeeded = await copyTextToClipboard(oneTimeLink.url);
+    setCopied(succeeded);
+    setCopyFailed(!succeeded);
   }
 
   async function runAction(key: string, action: () => Promise<{ ok: boolean; error?: string }>) {
@@ -243,13 +243,26 @@ export function KitchenManagementClient({ organizerId, businesses, courierBusine
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold text-zinc-950">{oneTimeLink.label} — copy now</h2>
-              <p className="mt-1 break-all font-mono text-xs text-zinc-700">{oneTimeLink.url}</p>
+              {copyFailed ? (
+                <input
+                  type="text"
+                  readOnly
+                  value={oneTimeLink.url}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="mt-1 w-full rounded-lg border border-orange-200 bg-white px-2 py-1 font-mono text-xs text-zinc-700"
+                />
+              ) : (
+                <p className="mt-1 break-all font-mono text-xs text-zinc-700">{oneTimeLink.url}</p>
+              )}
             </div>
             <div className="flex gap-2">
               <Button type="button" size="sm" onClick={copyLink}>{copied ? "Copied" : "Copy link"}</Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => { setOneTimeLink(null); setCopied(false); }}>Dismiss</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => { setOneTimeLink(null); setCopied(false); setCopyFailed(false); }}>Dismiss</Button>
             </div>
           </div>
+          {copyFailed && (
+            <p className="mt-2 text-xs font-semibold text-red-700">Copy failed - select the link and copy it manually</p>
+          )}
           <p className="mt-2 text-xs text-zinc-600">This secret is shown only now. Refreshing or dismissing it cannot recover the link.</p>
         </section>
       )}

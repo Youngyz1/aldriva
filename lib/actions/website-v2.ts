@@ -58,8 +58,12 @@ import {
   getWebsiteBackgroundPattern,
   getWebsitePaletteId,
   resolveStorefrontCurrency,
+  resolveStoredWebsiteAppearance,
   WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY,
 } from "@/lib/website-v2-theme";
+import { resolveWebsiteTimezone } from "@/lib/date-timezone";
+import { resolveAcceptOrdersWhenClosed } from "@/lib/storefront-settings";
+import { normalizeStorefrontCurrency } from "@/lib/money";
 import {
   getContentForBuilder,
   saveContentDraft,
@@ -71,6 +75,8 @@ export interface CreateV2WebsiteOptions {
   slug?: string;
   websiteCategory?: string;
   creationRequestId?: string;
+  /** Owner-chosen storefront currency (default USD). */
+  currency?: string;
 }
 
 export interface CreateV2WebsiteResult {
@@ -100,21 +106,21 @@ export async function saveV2WebsiteAppearanceDraft(
   const normalized = normalizeContent(content);
   const extras = normalized.template_extras ?? {};
   const appearance = extras[WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY];
+  let contentToSave = normalized;
   if (appearance !== undefined) {
-    if (!template.palettes?.length || !appearance || typeof appearance !== "object" || Array.isArray(appearance)) {
-      return { success: false, error: "This template does not support appearance choices." };
-    }
-    const value = appearance as Record<string, unknown>;
-    const validPalette = typeof value.paletteId === "string" && template.palettes.some((palette) => palette.id === value.paletteId);
-    const validPattern = template.patterns?.length
-      ? typeof value.backgroundPattern === "string" && template.patterns.some((pattern) => pattern.id === value.backgroundPattern)
-      : value.backgroundPattern === undefined || value.backgroundPattern === "none";
-    if (!validPalette || !validPattern) {
-      return { success: false, error: "Choose a palette and any background pattern declared by this template." };
-    }
+    // An unsupported/stale stored value (e.g. a palette the template no
+    // longer declares) falls back to the template default here instead of
+    // blocking the save — this self-heals the next time it's resolved for
+    // publish, rather than leaving the website permanently unpublishable.
+    const resolved = resolveStoredWebsiteAppearance(template, appearance);
+    const { [WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY]: _droppedAppearance, ...restExtras } = extras;
+    contentToSave = {
+      ...normalized,
+      template_extras: resolved ? { ...restExtras, [WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY]: resolved } : restExtras,
+    };
   }
 
-  return saveContentDraft(websiteId, normalized, expectedVersion);
+  return saveContentDraft(websiteId, contentToSave, expectedVersion);
 }
 
 interface OrganizerRow {
@@ -270,11 +276,12 @@ export async function createWebsiteFromV2Template(
     templateVersion: template.version,
     brand: { accentId: template.defaultAccentId ?? "terracotta" },
     creationRequestId,
-    // New restaurant sites price in XOF unless the owner changes it later in
-    // Site settings (metadata.storefront.currency). Other templates keep the
-    // USD default; the country fallback upgrades them when relevant.
+    // New sites default to USD. The owner may pick another supported code in
+    // the creation form; country is never used to decide the stored currency
+    // (it only pre-selects the form value). Editable later in the builder's
+    // Ordering & payments panel.
     storefront: {
-      currency: template.id === "restaurant-table-flame" || template.id === "restaurant-savannah" ? "XOF" : "USD",
+      currency: normalizeStorefrontCurrency(options?.currency) ?? "USD",
     },
   };
 
@@ -410,6 +417,7 @@ export interface V2BuilderState {
     timeZone: string;
     country: string | null;
     currency: string;
+    acceptOrdersWhenClosed: boolean;
   };
   template: { id: string; version: string; name: string };
   templateManifest: WebsiteTemplateV2;
@@ -645,9 +653,10 @@ export async function getBuilderState(
     offerings: Array.isArray(linkedBusiness?.offerings)
       ? linkedBusiness.offerings.filter((key: unknown): key is string => typeof key === "string")
       : [],
-    timeZone: typeof metadata.timezone === "string" ? metadata.timezone : "Africa/Abidjan",
+    timeZone: resolveWebsiteTimezone(metadata),
     country: typeof linkedBusiness?.country === "string" ? linkedBusiness.country : null,
     currency: storefrontCurrency,
+    acceptOrdersWhenClosed: resolveAcceptOrdersWhenClosed(metadata),
   };
   const resolved = resolveTemplateContent(template.id, template.version, effective, {
     siteSlug: data.websiteSlug,

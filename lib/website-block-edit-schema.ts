@@ -109,6 +109,11 @@ export const BLOCK_EDIT_SCHEMA: Record<BlockType, Record<string, EditFieldDef>> 
   promotions_embed: {},
   menu_order: {},
   reservation_form: {},
+  general_booking_form: {},
+  booking_bar: {},
+  fleet_cards: {},
+  fleet_grid: {},
+  booking_form: {},
 };
 
 const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { createSupabaseAdmin } from "@/lib/supabase-admin";
-import { hasEventOrOrganizerAccess } from "@/lib/event-auth";
+import { hasEventOrOrganizerAccess, EVENT_SCAN_ENTITY_ROLES } from "@/lib/event-auth";
 
 export async function GET(
   req: NextRequest,
@@ -29,13 +29,18 @@ export async function GET(
       return NextResponse.json({ error: "Not signed in." }, { status: 401 });
     }
 
-    const canManage = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager", "ticket_scanner"]);
+    const canManage = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager", "ticket_scanner"], EVENT_SCAN_ENTITY_ROLES);
     if (!canManage) {
       return NextResponse.json(
         { error: "You do not have permission to view check-in analytics for this event." },
         { status: 403 }
       );
     }
+
+    // Attendee PII gate, same posture as verify-ticket's hasFullManagerAccess:
+    // a ticket_scanner passes the access check above (door staff need the
+    // check-in list) but never gets buyer_email/total_amount in any row.
+    const hasFullManagerAccess = await hasEventOrOrganizerAccess(user.id, eventId, ["event_manager"], EVENT_SCAN_ENTITY_ROLES);
 
     const searchParams = req.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -217,11 +222,11 @@ export async function GET(
         id: inst.id,
         order_id: inst.order_id,
         buyer_name: orderData?.buyer_name || "Guest",
-        buyer_email: orderData?.buyer_email || "",
+        buyer_email: hasFullManagerAccess ? (orderData?.buyer_email || "") : "",
         tier_name: tierName,
         seat_label: inst.seat_label,
         quantity: 1,
-        total_amount: orderData?.total_amount || 0,
+        total_amount: hasFullManagerAccess ? (orderData?.total_amount || 0) : 0,
         checked_in_at: inst.checked_in_at,
         qr_code: inst.qr_code,
         scanned_by_id: scannedById,

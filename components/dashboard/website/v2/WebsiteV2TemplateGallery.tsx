@@ -15,10 +15,12 @@ interface WebsiteV2TemplateGalleryProps {
   businessName: string;
   businessLogo: string | null;
   initialCategory: WebsiteCategory;
+  /** Suggested from the business country; the owner can change it. */
+  initialCurrency?: string;
   canCreate: boolean;
 }
 
-async function V2TemplateCardPreview({
+export async function V2TemplateCardPreview({
   templateId,
   businessName,
   businessLogo,
@@ -99,7 +101,7 @@ async function V2TemplateCardPreview({
       />
       <main>
         {home.blocks.map((block, index) => (
-          <BlockRenderer key={block.id ?? `${template.id}-preview-${index}`} block={block} siteSlug={`template-preview-${template.id}`} scopeInternalLinks {...(template.id === "restaurant-savannah" ? { siteTemplateId: template.id, sectionAlign: template.sectionAlign, businessName } : {})} />
+          <BlockRenderer key={block.id ?? `${template.id}-preview-${index}`} block={block} siteSlug={`template-preview-${template.id}`} scopeInternalLinks {...((template.id === "restaurant-savannah" || template.id === "showcase") ? { siteTemplateId: template.id, sectionAlign: template.sectionAlign, businessName } : {})} />
         ))}
       </main>
       <V2SiteFooter
@@ -122,6 +124,7 @@ export async function WebsiteV2TemplateGallery({
   businessName,
   businessLogo,
   initialCategory,
+  initialCurrency = "USD",
   canCreate,
 }: WebsiteV2TemplateGalleryProps) {
   const locale = await getLocale();
@@ -146,6 +149,7 @@ export async function WebsiteV2TemplateGallery({
     <WebsiteV2TemplateGalleryClient
       organizerId={organizerId}
       initialCategory={initialCategory}
+      initialCurrency={initialCurrency}
       cards={cards}
       canCreate={canCreate}
     />

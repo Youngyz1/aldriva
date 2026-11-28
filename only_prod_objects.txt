@@ -1,0 +1,2 @@
+CREATE FUNCTION public.rls_auto_enable() RETURNS event_trigger
+CREATE UNIQUE INDEX idx_event_team_members_active_user ON public.event_team_members USING btree (event_id, user_id) WHERE ((status = 'active

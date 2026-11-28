@@ -83,7 +83,9 @@ export function KitchenOrderCard({ order, canUpdate, busy, onTransition }: Props
 
       <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm text-zinc-700">
         {createdTime && <div><dt className="inline font-medium">Ordered </dt><dd className="inline">{createdTime}</dd></div>}
-        {readyTime && <div><dt className="inline font-medium">Ready by </dt><dd className="inline">{readyTime}</dd></div>}
+        {readyTime
+          ? <div><dt className="inline font-medium">Ready by </dt><dd className="inline">{readyTime}</dd></div>
+          : ["accepted", "preparing"].includes(order.status) && <div><dt className="inline font-medium">Ready time </dt><dd className="inline">To be confirmed</dd></div>}
         {order.status === "ready" && completedTime && <div><dt className="inline font-medium">Ready at </dt><dd className="inline">{completedTime}</dd></div>}
       </dl>
 

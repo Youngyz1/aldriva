@@ -35,6 +35,7 @@ import type {
 import { cleanupOrphanInvitationAudio } from "@/lib/uploadAudio";
 import { filterSupportedMusicLinks } from "@/lib/invitation-music-links";
 import { legacyInvitationTemplateToLayout } from "@/lib/invitation-page-layout";
+import { sanitizeDraftForTemplate } from "@/lib/invitation-template-sanitize";
 import {
   MISSING_MUSIC_LINKS_COLUMN_ERROR,
   isMissingMusicLinksColumnError,
@@ -117,7 +118,11 @@ export async function saveInvitationPageDraft(
     return { ok: false, error: "Invitation pages are available only for invitation events." };
   }
 
-  const parsed = InvitationPageDraftSchema.safeParse(draftInput);
+  const sanitizedInput = sanitizeDraftForTemplate(
+    draftInput,
+    (draftInput as { template_id?: string | null })?.template_id
+  );
+  const parsed = InvitationPageDraftSchema.safeParse(sanitizedInput);
   if (!parsed.success) {
     const errors: ValidationErrorItem[] = parsed.error.issues.map((i) => ({
       field: i.path.join("."),
@@ -265,9 +270,7 @@ export async function publishInvitationPage(
   const publishDraft = {
     ...draftRow,
     music_links: publishMusic.links,
-    blocks_layout: draftRow.template_id === "evergreen-envelope"
-      ? legacyInvitationTemplateToLayout(draftRow.template_id, draftRow.blocks_layout)
-      : draftRow.blocks_layout,
+    blocks_layout: draftRow.blocks_layout,
   };
   const validation = validateForPublish(publishDraft, event, locale);
   if (!validation.valid) {
@@ -512,7 +515,7 @@ export async function getInvitationPageDraft(
     : {
     id: "",
     event_id: event.id,
-    template_id: "gala-editorial",
+    template_id: "",
     locale: "en",
     page_status: "draft",
     published_at: null,
@@ -658,7 +661,7 @@ export async function getInvitationPagePreviewByToken(
   const effectiveDraft = (draft as EventInvitationPageRow) || {
     id: "",
     event_id: event.id,
-    template_id: "gala-editorial",
+    template_id: "",
     locale: "en",
     page_status: "draft",
     published_at: null,

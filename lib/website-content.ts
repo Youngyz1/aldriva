@@ -48,6 +48,7 @@ export type SharedContentKey = (typeof SHARED_CONTENT_KEYS)[number];
 
 export const OPTIONAL_CONTENT_KEYS = [
   "secondary_cta_label",
+  "hero_images",
   "stats",
   "highlights",
   "trust",
@@ -61,6 +62,13 @@ export const OPTIONAL_CONTENT_KEYS = [
   "about_headline",
   "about_subtitle",
   "promo",
+  "benefits",
+  "areas",
+  "values",
+  "team",
+  "services_heading",
+  "services_limit",
+  "services_layout",
 ] as const;
 
 export type OptionalContentKey = (typeof OPTIONAL_CONTENT_KEYS)[number];
@@ -115,6 +123,8 @@ export interface ContentSocials {
   facebook?: string;
   tiktok?: string;
   x?: string;
+  linkedin?: string;
+  youtube?: string;
 }
 
 export interface ContentFeatured {
@@ -245,11 +255,26 @@ export function normalizeHours(value: unknown): ContentHours | undefined {
   return filled ? out : undefined;
 }
 
+/**
+ * Resolve the booking hours a site presents/validates against: the owner's
+ * saved hours (normalized) when present and non-empty, else null.
+ * PRODUCT RULE: hours come only from what the owner saved. Never invent
+ * opening hours — a business with no saved hours has no bookable times.
+ * Single source of truth shared by the form props (page.tsx) and
+ * submitGeneralBookingRequest so the server always validates against the
+ * identical slot grid the form offered.
+ */
+export function resolveBookingHours(savedHours: unknown): ContentHours | null {
+  const normalized = normalizeHours(savedHours);
+  if (normalized) return normalized;
+  return null;
+}
+
 function normalizeSocials(value: unknown): ContentSocials | undefined {
   if (!isPlainObject(value)) return undefined;
   const out: ContentSocials = {};
   let filled = false;
-  for (const network of ["instagram", "facebook", "tiktok", "x"] as const) {
+  for (const network of ["instagram", "facebook", "tiktok", "x", "linkedin", "youtube"] as const) {
     const url = clampUrl(value[network]);
     if (url) {
       out[network] = url;
@@ -382,6 +407,15 @@ export function normalizeContent(input: unknown): ContentDoc {
     .filter((src): src is string => !!src);
   if (gallery && gallery.length > 0) out.gallery_images = gallery;
 
+  const heroImages = clampStringArray(
+    input.hero_images,
+    6,
+    BLOCK_LIMITS.URL_MAX_LENGTH
+  )
+    ?.map((src) => safeImageSrc(src))
+    .filter((src): src is string => !!src);
+  if (heroImages && heroImages.length > 0) out.hero_images = heroImages;
+
   const testimonials = normalizeTestimonials(input.testimonials);
   if (testimonials) out.testimonials = testimonials;
   const faq = normalizeFaq(input.faq);
@@ -405,6 +439,26 @@ export function normalizeContent(input: unknown): ContentDoc {
   if (addons) out.addons = addons;
   const locations = normalizeKeyedItems(input.locations, BLOCK_LIMITS.ADDRESS_MAX_LENGTH);
   if (locations) out.locations = locations;
+
+  const servicesHeading = text(input.services_heading, BLOCK_LIMITS.HEADING_MAX_LENGTH);
+  if (servicesHeading) out.services_heading = servicesHeading;
+  const servicesLimitRaw = input.services_limit;
+  const servicesLimit =
+    typeof servicesLimitRaw === "number" && Number.isFinite(servicesLimitRaw)
+      ? Math.min(12, Math.max(1, Math.floor(servicesLimitRaw)))
+      : undefined;
+  if (servicesLimit) out.services_limit = servicesLimit;
+  const servicesLayout = clampText(input.services_layout, BLOCK_LIMITS.LABEL_MAX_LENGTH);
+  if (servicesLayout && (servicesLayout === "grid" || servicesLayout === "list"))
+    out.services_layout = servicesLayout;
+  const benefits = normalizeKeyedItems(input.benefits, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH)?.slice(0, 6);
+  if (benefits) out.benefits = benefits;
+  const areas = normalizeKeyedItems(input.areas, BLOCK_LIMITS.ADDRESS_MAX_LENGTH)?.slice(0, 6);
+  if (areas) out.areas = areas;
+  const values = normalizeKeyedItems(input.values, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH)?.slice(0, 4);
+  if (values) out.values = values;
+  const team = normalizeKeyedItems(input.team, BLOCK_LIMITS.SUBHEADING_MAX_LENGTH)?.slice(0, 4);
+  if (team) out.team = team;
 
   if (isPlainObject(input.featured)) {
     const featured: ContentFeatured = {};

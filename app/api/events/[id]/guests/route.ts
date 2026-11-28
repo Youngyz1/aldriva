@@ -275,16 +275,22 @@ export async function POST(
     // 3. Optionally send invitation email
     let emailSent = false;
     let emailMessage: string | null = null;
+    let emailError: string | undefined;
+    let invitationUrl: string | undefined;
+    let whatsappUrl: string | undefined;
     if (sendEmail && email) {
       try {
         const sendResult = await sendInvitationEmail({
           eventId,
           invitationId,
         });
-        emailSent = sendResult.ok;
+        emailSent = sendResult.emailed;
         emailMessage = sendResult.message;
+        emailError = sendResult.emailError;
+        invitationUrl = sendResult.invitationUrl;
+        whatsappUrl = sendResult.whatsappUrl;
       } catch (sendErr: unknown) {
-        console.warn("[guests/create] Email send failed:", sendErr);
+        console.warn("[guests/create] Email send failed:", sendErr instanceof Error ? sendErr.message : sendErr);
       }
     }
 
@@ -320,6 +326,9 @@ export async function POST(
       },
       emailSent,
       emailMessage,
+      emailError,
+      invitationUrl,
+      whatsappUrl,
     });
   } catch (err: unknown) {
     if (err instanceof GuestInvitationColumnsUnavailableError) {
@@ -363,9 +372,9 @@ export async function PATCH(
     for (const invId of invitationIds) {
       try {
         const res = await sendInvitationEmail({ eventId, invitationId: invId });
-        if (res.ok) successCount++;
+        if (res.emailed) successCount++;
       } catch (e) {
-        console.warn(`[bulk_resend] Failed for ${invId}:`, e);
+        console.warn(`[bulk_resend] Failed for ${invId}:`, e instanceof Error ? e.message : e);
       }
     }
 

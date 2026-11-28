@@ -1,0 +1,3 @@
+.next/dev/types/routes.d.ts(515,1): error TS1128: Declaration or statement expected.
+.next/dev/types/validator.ts(3825,1): error TS1128: Declaration or statement expected.
+components/site/blocks/StorefrontBrowse.tsx(779,12): error TS1005: ',' expected.

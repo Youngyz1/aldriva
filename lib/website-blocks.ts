@@ -14,6 +14,23 @@
 import { sanitizeUrl } from "./sanitize-url";
 import { MAX_ARTICLE_HTML_LENGTH } from "./sanitize-limits";
 import { safeImageSrc } from "./image-url";
+import type { ResolvedMenuItem, ResolvedMenuPromotion, ResolvedMenuSection } from "./website-embeds";
+import type { ContentSocials } from "./website-content";
+
+/**
+ * Render-only sample menu/promotion data used by template previews.
+ *
+ * These never enter a saved content document or a database row: the resolver
+ * attaches them to blocks only while `includeSamples` is true, and the block
+ * renderers prefer tenant data whenever a tenant exists. `isSample` marks the
+ * records so preview UI can label them (Showcase spec section 10e).
+ */
+export type PreviewMenuItem = ResolvedMenuItem & { isSample?: boolean };
+export type PreviewMenuSection = Omit<ResolvedMenuSection, "items"> & {
+  items: PreviewMenuItem[];
+  isSample?: boolean;
+};
+export type PreviewMenuPromotion = ResolvedMenuPromotion & { isSample?: boolean };
 
 // ── 1. Block Component Types ──────────────────────────────────────────────────
 
@@ -80,6 +97,10 @@ export interface HeroBlock extends BaseBlock {
   metaPills?: Array<{ label: string; href?: string }>;
   /** True only when this hero supplies the deterministic header scrim signal. */
   scrim?: boolean;
+  /** Showcase only. Up to 6 pictures shown in a swipeable picture-mat frame
+   * beside the hero text; resolver-computed from hero_images (falling back
+   * to the legacy single hero_image when unset). Replaces imageFraming. */
+  images?: GalleryImage[];
 }
 
 export interface FeatureItem extends WithItemId {
@@ -96,6 +117,10 @@ export interface FeaturesBlock extends BaseBlock {
   subheading?: string;
   items?: FeatureItem[];
   columns?: 2 | 3 | 4;
+  variant?: "trust_strip";
+  /** trust_strip (Showcase only): animate as a marquee when 3+ items.
+   * Resolver-computed from template_extras.servicesMarquee; defaults true. */
+  scrollingEnabled?: boolean;
 }
 
 export interface AboutHighlight extends WithItemId {
@@ -116,6 +141,7 @@ export interface AboutBlock extends BaseBlock {
   founderRole?: string;
   founderImage?: string;
   highlights?: AboutHighlight[];
+  variant?: "split";
 }
 
 export interface GalleryImage extends WithItemId {
@@ -179,6 +205,11 @@ export interface ContactBlock extends BaseBlock {
   directionsUrl?: string;
   showMap?: boolean;
   mapQuery?: string;
+  variant?: "card";
+  /** Showcase only. Digits-only phone number (>= 8 digits) for a wa.me WhatsApp button. */
+  whatsapp?: string;
+  /** Showcase only. Shown as an icon row alongside the WhatsApp button. */
+  socials?: ContentSocials;
 }
 
 export interface FaqItem extends WithItemId {
@@ -220,6 +251,7 @@ export interface ProductsEmbedBlock extends BaseBlock {
   browsePageSize?: number;
   /** Render-only gallery/editor preview data; public resolvers omit this field. */
   previewProducts?: StorefrontProductPreviewItem[];
+  variant?: "carousel";
 }
 
 export interface StorefrontProductPreviewItem {
@@ -294,6 +326,18 @@ export interface MenuEmbedBlock extends BaseBlock {
   variant?: "cards" | "rows" | "editorial" | "catalog-carousel";
   /** How menu card images fit their container in catalog-carousel ('cover' | 'contain'). Defaults to 'cover'. */
   imageFit?: "cover" | "contain";
+  /** Render-only sample sections for template previews. Never persisted; tenant menu wins. */
+  previewSections?: PreviewMenuSection[];
+  /** Showcase "Show suggestions" builder switch for the item sheet's "You might also like" row. Default on when unset. */
+  relatedItemsEnabled?: boolean;
+}
+
+export interface PromotionFallback {
+  headline?: string;
+  subtext?: string;
+  image?: string;
+  buttonLabel?: string;
+  href?: string;
 }
 
 export interface PromotionsEmbedBlock extends BaseBlock {
@@ -302,6 +346,11 @@ export interface PromotionsEmbedBlock extends BaseBlock {
   enabled?: boolean;
   /** auto respects each dashboard promotion's layout. */
   layout?: "auto" | "banner" | "dish_card" | "announcement_bar";
+  variant?: "carousel";
+  fallback?: PromotionFallback;
+  imageStyle?: "contain" | "cover";
+  /** Render-only sample slides for template previews. Never persisted; tenant promotions win. */
+  previewPromotions?: PreviewMenuPromotion[];
 }
 
 /** Normalizes an ISO 4217 currency code; anything else yields undefined. */
@@ -328,7 +377,12 @@ export type Block =
   | RichTextBlock
   | CtaBannerBlock
   | MenuOrderBlock
-  | ReservationFormBlock;
+  | ReservationFormBlock
+  | GeneralBookingFormBlock
+  | BookingBarBlock
+  | FleetCardsBlock
+  | FleetGridBlock
+  | BookingFormBlock;
 
 export interface MenuOrderBlock extends BaseBlock {
   type: "menu_order";
@@ -336,6 +390,30 @@ export interface MenuOrderBlock extends BaseBlock {
 
 export interface ReservationFormBlock extends BaseBlock {
   type: "reservation_form";
+}
+
+export interface GeneralBookingFormBlock extends BaseBlock {
+  type: "general_booking_form";
+}
+
+export interface BookingBarBlock extends BaseBlock {
+  type: "booking_bar";
+  heading?: string;
+}
+
+export interface FleetCardsBlock extends BaseBlock {
+  type: "fleet_cards";
+  heading?: string;
+}
+
+export interface FleetGridBlock extends BaseBlock {
+  type: "fleet_grid";
+  heading?: string;
+}
+
+export interface BookingFormBlock extends BaseBlock {
+  type: "booking_form";
+  heading?: string;
 }
 
 export const KNOWN_BLOCK_TYPES = [
@@ -356,6 +434,11 @@ export const KNOWN_BLOCK_TYPES = [
   "cta_banner",
   "menu_order",
   "reservation_form",
+  "general_booking_form",
+  "booking_bar",
+  "fleet_cards",
+  "fleet_grid",
+  "booking_form",
 ] as const;
 
 export type BlockType = (typeof KNOWN_BLOCK_TYPES)[number];
@@ -778,6 +861,9 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(imageFit ? { imageFit } : {}),
           ...(metaPills.length ? { metaPills } : {}),
           ...(typeof obj.scrim === "boolean" ? { scrim: obj.scrim } : {}),
+          ...(obj.imageFraming === "fill-top" || obj.imageFraming === "fill-bottom" || obj.imageFraming === "full"
+            ? { imageFraming: obj.imageFraming }
+            : {}),
         },
       };
     }
@@ -858,6 +944,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         };
       }
 
+      const variant = obj.variant === "trust_strip" ? obj.variant : undefined;
+
       return {
         success: true,
         data: {
@@ -867,6 +955,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(subheading ? { subheading } : {}),
           items,
           columns,
+          ...(variant ? { variant } : {}),
+          ...(typeof obj.scrollingEnabled === "boolean" ? { scrollingEnabled: obj.scrollingEnabled } : {}),
         },
       };
     }
@@ -984,6 +1074,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         };
       }
 
+      const variant = obj.variant === "split" ? obj.variant : undefined;
+
       return {
         success: true,
         data: {
@@ -999,6 +1091,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(founderRole ? { founderRole } : {}),
           ...(founderImage ? { founderImage } : {}),
           highlights,
+          ...(variant ? { variant } : {}),
         },
       };
     }
@@ -1289,6 +1382,8 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         };
       }
 
+      const variant = obj.variant === "card" ? obj.variant : undefined;
+
       return {
         success: true,
         data: {
@@ -1305,6 +1400,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           ...(directionsUrl ? { directionsUrl } : {}),
           showMap,
           ...(mapQuery ? { mapQuery } : {}),
+          ...(variant ? { variant } : {}),
         },
       };
     }
@@ -1545,6 +1641,9 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         };
       }
 
+      const variant = obj.variant === "carousel" ? obj.variant : undefined;
+      const imageStyle = obj.imageStyle === "cover" ? "cover" : obj.imageStyle === "contain" ? "contain" : undefined;
+
       return {
         success: true,
         data: {
@@ -1560,6 +1659,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
           // resolve time and is intentionally never persisted here.
           ...storeFlags,
           ...(browsePageSize !== undefined ? { browsePageSize } : {}),
+          ...(variant ? { variant } : {}),
         },
       };
     }
@@ -1705,7 +1805,7 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       if (issues.length > 0) return { success: false, error: "Validation failed for menu_embed block.", issues };
       const variant = obj.variant === "rows" || obj.variant === "cards" || obj.variant === "editorial" || obj.variant === "catalog-carousel" ? obj.variant : undefined;
       const imageFit = obj.imageFit === "contain" || obj.imageFit === "cover" ? obj.imageFit : undefined;
-      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}), ...(variant ? { variant } : {}), ...(imageFit ? { imageFit } : {}) } };
+      return { success: true, data: { type: "menu_embed", ...envelope, ...(heading ? { heading } : {}), ...(subheading ? { subheading } : {}), limit, layout, ...(selectedSectionIds.length > 0 ? { selectedSectionIds } : {}), ...(selectedItemIds.length > 0 ? { selectedItemIds } : {}), ...(currency ? { currency } : {}), ...(variant ? { variant } : {}), ...(imageFit ? { imageFit } : {}), ...(typeof obj.relatedItemsEnabled === "boolean" ? { relatedItemsEnabled: obj.relatedItemsEnabled } : {}) } };
     }
 
     case "promotions_embed": {
@@ -1713,7 +1813,30 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
       const layout = obj.layout === "banner" || obj.layout === "dish_card" || obj.layout === "announcement_bar"
         ? obj.layout
         : "auto";
-      return { success: true, data: { type: "promotions_embed", ...envelope, enabled, layout } };
+      const variant = obj.variant === "carousel" ? obj.variant : undefined;
+      const imageStyle = obj.imageStyle === "cover" ? "cover" : obj.imageStyle === "contain" ? "contain" : undefined;
+      const fallbackRaw = typeof obj.fallback === "object" && obj.fallback !== null && !Array.isArray(obj.fallback)
+        ? (obj.fallback as Record<string, unknown>)
+        : undefined;
+      const fallback: PromotionFallback | undefined = fallbackRaw ? {
+        ...(typeof fallbackRaw.headline === "string" ? { headline: fallbackRaw.headline } : {}),
+        ...(typeof fallbackRaw.subtext === "string" ? { subtext: fallbackRaw.subtext } : {}),
+        ...(typeof fallbackRaw.image === "string" ? { image: fallbackRaw.image } : {}),
+        ...(typeof fallbackRaw.buttonLabel === "string" ? { buttonLabel: fallbackRaw.buttonLabel } : {}),
+        ...(typeof fallbackRaw.href === "string" ? { href: fallbackRaw.href } : {}),
+      } : undefined;
+      return {
+        success: true,
+        data: {
+          type: "promotions_embed",
+          ...envelope,
+          enabled,
+          layout,
+          ...(variant ? { variant } : {}),
+          ...(imageStyle ? { imageStyle } : {}),
+          ...(fallback ? { fallback } : {}),
+        },
+      };
     }
 
     case "cta_banner": {
@@ -1798,6 +1921,40 @@ export function validateBlock(raw: unknown): ValidationResult<Block> {
         success: true,
         data: {
           type: "reservation_form",
+          ...envelope,
+        },
+      };
+    }
+
+    case "general_booking_form": {
+      if (issues.length > 0) {
+        return {
+          success: false,
+          error: "Validation failed for general_booking_form block.",
+          issues,
+        };
+      }
+      return {
+        success: true,
+        data: {
+          type: "general_booking_form",
+          ...envelope,
+        },
+      };
+    }
+
+    case "booking_bar":
+    case "fleet_cards":
+    case "fleet_grid":
+    case "booking_form": {
+      const heading = typeof (obj as { heading?: unknown }).heading === "string"
+        ? (obj as { heading: string }).heading.trim()
+        : undefined;
+      return {
+        success: true,
+        data: {
+          type,
+          ...(heading ? { heading } : {}),
           ...envelope,
         },
       };
@@ -1923,6 +2080,8 @@ export function parseBlock(raw: unknown): Block | null {
               href: sanitizeUrl(it?.href) || undefined,
             }))
           : [],
+        ...(obj.variant === "trust_strip" ? { variant: "trust_strip" } : {}),
+        ...(typeof obj.scrollingEnabled === "boolean" ? { scrollingEnabled: obj.scrollingEnabled } : {}),
       };
 
     case "about":
@@ -1946,6 +2105,7 @@ export function parseBlock(raw: unknown): Block | null {
               icon: typeof h?.icon === "string" ? h.icon.slice(0, 50) : undefined,
             }))
           : [],
+        ...(obj.variant === "split" ? { variant: "split" } : {}),
       };
 
     case "gallery":
@@ -2025,6 +2185,7 @@ export function parseBlock(raw: unknown): Block | null {
         directionsUrl: typeof obj.directionsUrl === "string" ? sanitizeUrl(obj.directionsUrl).slice(0, BLOCK_LIMITS.URL_MAX_LENGTH) || undefined : undefined,
         showMap: Boolean(obj.showMap),
         mapQuery: typeof obj.mapQuery === "string" ? obj.mapQuery.slice(0, BLOCK_LIMITS.HEADING_MAX_LENGTH) : undefined,
+        ...(obj.variant === "card" ? { variant: "card" } : {}),
       };
 
     case "faq":
@@ -2093,6 +2254,7 @@ export function parseBlock(raw: unknown): Block | null {
               ),
             }
           : {}),
+        ...(obj.variant === "carousel" ? { variant: "carousel" } : {}),
       };
 
     case "fundraiser_embed":
@@ -2148,15 +2310,29 @@ export function parseBlock(raw: unknown): Block | null {
           : undefined,
         currency: normalizeCurrencyCode(obj.currency),
         variant: obj.variant === "rows" ? "rows" : obj.variant === "editorial" ? "editorial" : undefined,
+        relatedItemsEnabled: typeof obj.relatedItemsEnabled === "boolean" ? obj.relatedItemsEnabled : undefined,
       };
 
-    case "promotions_embed":
+    case "promotions_embed": {
+      const fallbackRaw = typeof obj.fallback === "object" && obj.fallback !== null && !Array.isArray(obj.fallback)
+        ? (obj.fallback as Record<string, unknown>)
+        : undefined;
+      const fallback: PromotionFallback | undefined = fallbackRaw ? {
+        ...(typeof fallbackRaw.headline === "string" ? { headline: fallbackRaw.headline.trim() } : {}),
+        ...(typeof fallbackRaw.subtext === "string" ? { subtext: fallbackRaw.subtext.trim() } : {}),
+        ...(typeof fallbackRaw.image === "string" ? { image: fallbackRaw.image.trim() } : {}),
+        ...(typeof fallbackRaw.buttonLabel === "string" ? { buttonLabel: fallbackRaw.buttonLabel.trim() } : {}),
+        ...(typeof fallbackRaw.href === "string" ? { href: fallbackRaw.href.trim() } : {}),
+      } : undefined;
       return {
         type: "promotions_embed",
         ...envelope,
         enabled: obj.enabled !== false,
         layout: obj.layout === "banner" || obj.layout === "dish_card" || obj.layout === "announcement_bar" ? obj.layout : "auto",
+        ...(obj.variant === "carousel" ? { variant: "carousel" } : {}),
+        ...(fallback ? { fallback } : {}),
       };
+    }
 
     case "cta_banner":
       return {
@@ -2181,6 +2357,22 @@ export function parseBlock(raw: unknown): Block | null {
     case "reservation_form":
       return {
         type: "reservation_form",
+        ...envelope,
+      };
+
+    case "general_booking_form":
+      return {
+        type: "general_booking_form",
+        ...envelope,
+      };
+
+    case "booking_bar":
+    case "fleet_cards":
+    case "fleet_grid":
+    case "booking_form":
+      return {
+        type,
+        ...(typeof (obj as { heading?: unknown }).heading === "string" ? { heading: (obj as { heading: string }).heading.trim() } : {}),
         ...envelope,
       };
 

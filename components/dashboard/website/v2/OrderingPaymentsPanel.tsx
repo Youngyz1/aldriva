@@ -4,11 +4,17 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Switch } from "@/components/ui/switch";
 import { updateBusiness } from "@/lib/actions/businesses";
+import { saveStorefrontSettings } from "@/lib/actions/website-content";
 import {
+  ONLINE_PAYMENT_CURRENCIES,
   getBuiltStorefrontFeatures,
+  isOnlinePaymentCurrencySupported,
   resolveStorefrontFeatures,
   storefrontFeatureForOffering,
 } from "@/lib/storefront-features";
+import { STOREFRONT_CURRENCIES } from "@/lib/money";
+import { SITE_TIMEZONE_OPTIONS } from "@/lib/date-timezone";
+import { DEFAULT_ACCEPT_ORDERS_WHEN_CLOSED } from "@/lib/storefront-settings";
 import { getBuilderFeatureOfferings } from "@/lib/business-offerings";
 import { getCapabilitiesForBusinessType, type Capability } from "@/lib/business-taxonomy";
 import { OfferingsFulfilmentWarning } from "@/components/dashboard/businesses/OfferingsFulfilmentWarning";
@@ -23,6 +29,9 @@ export interface OrderingPaymentsPanelProps {
     offerings: string[];
     currency: string;
   } | null;
+  organizerId: string;
+  siteTimezone?: string;
+  acceptOrdersWhenClosed?: boolean;
   template: Pick<WebsiteTemplateV2, "sections" | "id">;
   capabilities?: readonly Capability[] | readonly string[];
   canManage: boolean;
@@ -35,6 +44,9 @@ export interface OrderingPaymentsPanelProps {
 
 export function OrderingPaymentsPanel({
   business,
+  organizerId,
+  siteTimezone,
+  acceptOrdersWhenClosed = DEFAULT_ACCEPT_ORDERS_WHEN_CLOSED,
   template,
   capabilities,
   canManage,
@@ -48,6 +60,11 @@ export function OrderingPaymentsPanel({
   const getLabel = t as unknown as (key: string) => string;
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currencyValue, setCurrencyValue] = useState<string>(business?.currency ?? "USD");
+  const [timezoneValue, setTimezoneValue] = useState<string>(siteTimezone ?? "");
+  const [acceptWhenClosed, setAcceptWhenClosed] = useState<boolean>(acceptOrdersWhenClosed);
+  const [savingSetting, setSavingSetting] = useState<string | null>(null);
+  const [settingNotice, setSettingNotice] = useState<string | null>(null);
 
   if (!business || !business.id) {
     return null;
@@ -77,9 +94,31 @@ export function OrderingPaymentsPanel({
     capabilities: effectiveCapabilities,
     offerings: business.offerings,
     built: builtFeatures,
-    currency: business.currency,
+    currency: currencyValue,
     hasActiveDish,
   });
+
+  async function saveSetting(
+    key: string,
+    payload: { currency?: string; timezone?: string; acceptOrdersWhenClosed?: boolean }
+  ) {
+    if (!canManage || savingSetting !== null) return;
+    setSavingSetting(key);
+    setError(null);
+    setSettingNotice(null);
+    try {
+      const res = await saveStorefrontSettings({ organizerId, ...payload });
+      if (!res.success) {
+        setError(res.error || "Failed to save ordering settings.");
+        return;
+      }
+      setSettingNotice(t("orderingPaymentsSaved"));
+    } catch {
+      setError("An unexpected error occurred while saving.");
+    } finally {
+      setSavingSetting(null);
+    }
+  }
 
   async function handleToggle(key: string, checked: boolean) {
     if (!canManage || updatingKey !== null || !business) return;
@@ -213,6 +252,83 @@ export function OrderingPaymentsPanel({
                 </div>
               );
             })}
+          </div>
+
+          {/* Storefront currency, site timezone and closed-business ordering */}
+          <div className="space-y-4 border-t border-zinc-100 pt-4 dark:border-zinc-800/80">
+            <div className="space-y-1.5">
+              <label htmlFor="storefront-currency" className="block text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                {t("storefrontCurrencyLabel")}
+              </label>
+              <select
+                id="storefront-currency"
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm outline-none focus:border-orange-500 focus:bg-white disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                value={currencyValue}
+                disabled={!canManage || savingSetting !== null}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setCurrencyValue(next);
+                  void saveSetting("currency", { currency: next });
+                }}
+              >
+                {STOREFRONT_CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {code} — {isOnlinePaymentCurrencySupported(code) ? t("storefrontCurrencyCardOnline") : t("storefrontCurrencyCashOnly")}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">{t("storefrontCurrencyWarning")}</p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                {t("storefrontCurrencyOnlineNote", { currencies: ONLINE_PAYMENT_CURRENCIES.join(", ") })}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="storefront-timezone" className="block text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                {t("storefrontTimezoneLabel")}
+              </label>
+              <select
+                id="storefront-timezone"
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm outline-none focus:border-orange-500 focus:bg-white disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                value={timezoneValue}
+                disabled={!canManage || savingSetting !== null}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setTimezoneValue(next);
+                  void saveSetting("timezone", { timezone: next || "Africa/Abidjan" });
+                }}
+              >
+                <option value="">{t("storefrontTimezoneDefault")}</option>
+                {SITE_TIMEZONE_OPTIONS.map((zone) => (
+                  <option key={zone} value={zone}>
+                    {zone}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-0.5 min-w-0 pr-2">
+                <label htmlFor="accept-orders-when-closed" className="cursor-pointer text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">
+                  {t("acceptOrdersWhenClosedLabel")}
+                </label>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t("acceptOrdersWhenClosedHint")}</p>
+              </div>
+              <Switch
+                id="accept-orders-when-closed"
+                checked={acceptWhenClosed}
+                disabled={!canManage || savingSetting !== null}
+                onCheckedChange={(checked) => {
+                  setAcceptWhenClosed(checked);
+                  void saveSetting("closed", { acceptOrdersWhenClosed: checked });
+                }}
+                aria-label={t("acceptOrdersWhenClosedLabel")}
+              />
+            </div>
+
+            {settingNotice ? (
+              <p role="status" className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">{settingNotice}</p>
+            ) : null}
           </div>
         </div>
       ) : null}

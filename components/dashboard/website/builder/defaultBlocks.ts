@@ -270,4 +270,27 @@ export const BLOCK_CATALOG: BlockCatalogItem[] = [
       ctaHref: "/contact",
     }),
   },
+  {
+    type: "general_booking_form",
+    label: "General Booking Form",
+    category: "content",
+    description: "Appointment request form for service businesses (salons, clinics, rentals). Collects name, phone, service type, and preferred time.",
+    iconName: "Calendar",
+    createDefault: (): Block => normalizeBlock({
+      type: "general_booking_form",
+    }),
+  },
+  {
+    type: "services_embed",
+    label: "Services",
+    category: "content",
+    description: "Display a catalog of bookable services from your services page.",
+    iconName: "Calendar",
+    createDefault: (): Block => normalizeBlock({
+      type: "services_embed",
+      heading: "Our Services",
+      limit: 6,
+      layout: "grid",
+    }),
+  },
 ];

@@ -92,7 +92,9 @@ export function ReservationsClient({
 
   const inTab = (r: DashboardReservationRow): boolean => {
     if (activeTab === "all") return true;
-    if (activeTab === "needs_action") return r.status === "pending";
+    if (activeTab === "needs_action") {
+      return r.status === "pending" || Boolean(r.change_request && r.change_request.status === "pending");
+    }
     if (activeTab === "today") {
       if (["cancelled", "declined"].includes(r.status)) return false;
       return dayKeyInTimezone(r.starts_at, siteTimezone) === todayKey;
@@ -115,7 +117,9 @@ export function ReservationsClient({
       all: initialReservations.length,
     };
     for (const r of initialReservations) {
-      if (r.status === "pending") counts.needs_action += 1;
+      if (r.status === "pending" || Boolean(r.change_request && r.change_request.status === "pending")) {
+        counts.needs_action += 1;
+      }
       if (!["cancelled", "declined"].includes(r.status) && dayKeyInTimezone(r.starts_at, siteTimezone) === todayKey) {
         counts.today += 1;
       }

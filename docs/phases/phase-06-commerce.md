@@ -1,22 +1,30 @@
 # Phase 6: Unified Commerce
 
+## Verification update (2026-10-28)
+
+- The public order tracking page now selects the live `dine_in_confirmation` field; the two nonexistent waiter columns were removed from its fallback query.
+- Storefront SEO metadata no longer calls the full request-aware resolver from `generateMetadata`; a cached public metadata query supplies the published page values.
+- Storefront success now records the active order in client state and localStorage while retaining the intentional cart clear. The rider card can resolve the registered phone for a unique matching courier name when the order snapshot has no phone.
+- One synthetic normal-site staging order was verified as a persistent pending delivery with a tracking token and item list after reload. It was not advanced by kitchen staff. The project has only table QR codes, so a menu-only QR delivery order was unavailable to test.
+- No schema migration was needed. Changed-file ESLint and `tsc --noEmit` passed. The full suite had 2,856 passes and 5 failures; see `docs/CURRENT-STATE.md` for the failing test names. Production build was deferred while the local dev server was using `.next`.
+
 ---
 
-## STATUS (verified 2026-10-20)
+## STATUS (historical snapshot, verified 2026-10-20; see update above)
 
 Store commerce path (cart → checkout → delivery) is **built**; tax, a unified fulfillment dashboard, and crypto carts are **not built**; the **Kitchen & Delivery workstream** belongs here and is built-but-uncommitted.
 
 ### Built
 - **Store cart & checkout:** `lib/store-cart.ts` (localStorage cart, bounds), `components/site/v2/StoreCartDrawer.tsx`, `POST /api/checkout/cart` (multi-line Stripe session) and `POST /api/checkout/cart/validate` (priced review, no writes), shared `lib/store-cart-checkout.ts`. (VERIFIED — files exist; §5 Tasks 6.2–6.4.)
 - **Store promo codes:** `db/migration_177_store_promo_codes.sql` (+ rollback + Supabase mirror), `lib/promo-codes.ts`, `apply_promo_use()` RPC; **applied on staging** (owner statement). (VERIFIED)
+- **Store promo owner UI & management actions:** `lib/actions/promo-codes.ts` (`listStorePromoCodes`, `createStorePromoCode`, `updateStorePromoCode`, `toggleStorePromoCodeActive`, `deleteStorePromoCode`), `components/dashboard/store/PromoCodesManager.tsx`, integrated into `app/dashboard/org/[id]/products/page.tsx` under the Promo Codes tab. Tested via `lib/__tests__/promo-codes-actions.test.cjs` (PASS). (VERIFIED — built and tested.)
 - **Orders & payments:** `db/migration_171_orders.sql` (orders + delivery-ready status set), `db/migration_173_order_online_payment.sql`, `db/migration_174_order_timing.sql`, `lib/actions/orders.ts`, `app/dashboard/org/[id]/orders/`. (VERIFIED — files exist.)
 - **Owner-managed delivery:** `db/migration_175_owner_managed_delivery.sql` (delivery fee/threshold, rider name+phone, `out_for_delivery`/`delivered` statuses), `lib/courier/whatsapp-message.ts`. (VERIFIED.)
 - **Menu order path:** menu ordering + option snapshots (Phase 5 workstream) submit through `lib/order-submit.ts`. (VERIFIED.)
-- Tests: `lib/__tests__/store-cart-checkout.test.cjs`, `phase6-owner-managed-delivery.test.cjs` (38/38 PASS 2026-10-20). (VERIFIED.)
+- Tests: `lib/__tests__/store-cart-checkout.test.cjs`, `phase6-owner-managed-delivery.test.cjs` (38/38 PASS 2026-10-20), `lib/__tests__/promo-codes-actions.test.cjs` (PASS). (VERIFIED.)
 
 ### Partly built
-- **Promo owner UI:** backend + validation + usage burn exist, but no dashboard UI creates promo codes; the checkout field only accepts codes provisioned out-of-band. (VERIFIED — §13.)
-- **Kitchen & Delivery workstream:** cook worker access, invitations, sessions, kitchen dashboard and `/kitchen/accept` built **but uncommitted** (migration 185). Order state flow, kitchen display page, courier registration UI, and driver dashboard **not built**. Full detail: `docs/phases/phase-kitchen-delivery.md`. (VERIFIED — files exist uncommitted; no kitchen commit anywhere.)
+- **Kitchen & Delivery workstream:** cook worker access, invitations, sessions, kitchen dashboard and `/kitchen/accept` built (migrations 185-201). Full detail: `docs/phases/phase-kitchen-delivery.md`.
 - **Owner-managed delivery migration 175** has uncommitted edits making the forward idempotent and the rollback a hard guard — pending owner decision. (VERIFIED — `git diff`.)
 - Diagnostics/repair paths: `lib/__tests__/phase5-overview.test.cjs`, `lib/__tests__/data-consistency.test.cjs`, `lib/__tests__/operational-settings.test.cjs` cover store/website ops. (VERIFIED — registered.)
 
@@ -40,8 +48,8 @@ Store commerce path (cart → checkout → delivery) is **built**; tax, a unifie
 4. Decide the migration-175 rollback question.
 5. Then move to Phase 7 (below).
 
-### PLANNED — Table & Menu QR Codes + dine-in ordering (owner-decided, not built)
-Owned by the same commerce surface as this phase, because it rides the order model and the kitchen flow. **Not built** — spec only:
+### Historical plan — Table & Menu QR Codes + dine-in ordering
+The design notes below predate the implementation. Current status is in `docs/phases/phase-table-menu-qr-codes.md` and the 2026-10-28 update above.
 - **Two QR kinds** — one menu QR per business, one QR per table; printed codes point at a stable short redirect **`/q/<code>`** (survives site-address/custom-domain changes → Phase 12).
 - **Ordering modes per business** — *menu only*, *order now / pay later* (**DEFAULT**), *pay online first*.
 - **Three order types** — **dine-in, pickup, delivery**. Only dine-in carries a table label, a table session and a confirmation state. Pickup/delivery **never** show a table and **never** need table confirmation; they use the existing owner flow (accept → preparing → ready → out for delivery → completed).

@@ -10,7 +10,8 @@
  * when their type/template returns.
  */
 
-import type { TemplateCategory } from "@/components/invitation/templates/registry";
+import type { InvitationTemplateCategory as TemplateCategory } from "@/lib/invitation-template-registry";
+import { getInvitationTemplateManifest, readManifestStorage, resolveManifestLabel } from "@/lib/invitation-template-manifests";
 
 /** First-screen choice of the builder (and of the future Create flow). */
 export type InvitationType = "wedding" | "birthday" | "gala" | "other";
@@ -22,35 +23,20 @@ export const INVITATION_TYPES: { id: InvitationType; label: string; hint: string
   { id: "other", label: "Other", hint: "Generic fields, any template" },
 ];
 
-/** Suggested template when a type is picked (host can still choose any). */
+/** No templates ship with the platform, so no default template per type. */
 export const DEFAULT_TEMPLATE_FOR_TYPE: Record<InvitationType, string> = {
-  wedding: "wedding-romantic",
-  birthday: "birthday-bold",
-  gala: "gala-editorial",
-  other: "gala-editorial",
+  wedding: "",
+  birthday: "",
+  gala: "",
+  other: "",
 };
 
 /** Recover the builder type from the saved page template when reopening. */
-export function invitationTypeForTemplate(templateId: string | null | undefined): InvitationType {
-  const category = templateId ? TEMPLATE_CATEGORY_BY_ID[templateId] : undefined;
-  if (category === "wedding") return "wedding";
-  if (category === "birthday") return "birthday";
-  if (category === "gala_corporate") return "gala";
+export function invitationTypeForTemplate(templateId?: string | null): InvitationType {
+  const manifest = getInvitationTemplateManifest(templateId);
+  if (manifest?.invitationType) return manifest.invitationType;
   return "other";
 }
-
-/** Registry template category per template id (mirrors the registry). */
-export const TEMPLATE_CATEGORY_BY_ID: Record<string, TemplateCategory> = {
-  "gala-editorial": "gala_corporate",
-  "black-tie": "gala_corporate",
-  "wedding-romantic": "wedding",
-  "romantic-envelope": "wedding",
-  "botanical-reverie": "wedding",
-  "evergreen-envelope": "wedding",
-  "luxe-editorial": "wedding",
-  "birthday-bold": "birthday",
-  cover: "universal",
-};
 
 export type TypeFieldKey =
   | "partner1_name"
@@ -106,11 +92,8 @@ export function extrasForType(type: InvitationType | null | undefined): TypeFiel
   return [];
 }
 
-/** Type-specific extras visible for a template (by registry category). */
-export function extrasForTemplate(templateId: string | null | undefined): TypeFieldKey[] {
-  const category = (templateId && TEMPLATE_CATEGORY_BY_ID[templateId]) || null;
-  if (category === "wedding") return WEDDING_FIELDS;
-  if (category === "birthday") return BIRTHDAY_FIELDS;
+/** No templates exist, so no template-specific fields. */
+export function extrasForTemplate(): TypeFieldKey[] {
   return [];
 }
 
@@ -164,26 +147,47 @@ export function hiddenContentOnTemplateSwitch(
   toTemplateId: string | null | undefined
 ): string[] {
   if (!fromTemplateId || !toTemplateId || fromTemplateId === toTemplateId) return [];
-  const fromFields = new Set(extrasForTemplate(fromTemplateId));
-  const toFields = new Set(extrasForTemplate(toTemplateId));
+  const fromFields = new Set(extrasForTemplate());
+  const toFields = new Set(extrasForTemplate());
   const hidden: string[] = [];
   for (const key of fromFields) {
     if (!toFields.has(key) && hasContent(draft[key])) {
       hidden.push(TYPE_FIELD_LABELS[key]);
     }
   }
-  if (fromTemplateId === "evergreen-envelope" && toTemplateId !== "evergreen-envelope") {
-    const blocksLayout = draft.blocks_layout;
-    const templateData = typeof blocksLayout === "object" && blocksLayout !== null
-      ? (blocksLayout as Record<string, unknown>).template_data
-      : null;
-    if (typeof templateData === "object" && templateData !== null && !Array.isArray(templateData)) {
-      const hasEvergreenContent = Object.entries(templateData as Record<string, unknown>).some(([key, value]) =>
-        key === "show_wishing_well" || key === "show_adults_only"
-          ? value === true
-          : hasContent(value)
-      );
-      if (hasEvergreenContent) hidden.push("Evergreen details and photos");
+
+  const fromManifest = getInvitationTemplateManifest(fromTemplateId);
+  const toManifest = getInvitationTemplateManifest(toTemplateId);
+  if (fromManifest) {
+    // Preserve existing minimalism warning text and behavior.
+    if (fromTemplateId === "minimalism-dark-blue" && toTemplateId !== "minimalism-dark-blue") {
+      const blocksLayout = draft.blocks_layout;
+      const td = typeof blocksLayout === "object" && blocksLayout !== null && !Array.isArray(blocksLayout)
+        ? (blocksLayout as Record<string, unknown>).template_data
+        : null;
+      const tdr = typeof td === "object" && td !== null && !Array.isArray(td) ? (td as Record<string, unknown>) : {};
+      const manifestKeys = [
+        "mf_parent_one_label","mf_parent_one_name_one","mf_parent_one_name_two",
+        "mf_parent_two_label","mf_parent_two_name_one","mf_parent_two_name_two",
+        "mf_hero_photos","mf_hero_eyebrow","mf_invitation_line","mf_dress_code_swatches",
+      ];
+      const hasManifestContent = manifestKeys.some((k) => hasContent(tdr[k]))
+        || hasContent(draft.partner1_name) || hasContent(draft.partner2_name);
+      if (hasManifestContent) hidden.push("Template fields (names, photos, parents, details)");
+    }
+
+    const toStorageKeys = new Set(
+      (toManifest?.fields ?? []).map((f) =>
+        f.storage.kind === "column" ? `col:${f.storage.column}` : `td:${f.storage.path}`
+      )
+    );
+    for (const field of fromManifest.fields) {
+      const key = field.storage.kind === "column" ? `col:${field.storage.column}` : `td:${field.storage.path}`;
+      if (toStorageKeys.has(key)) continue;
+      const value = readManifestStorage(draft, field.storage);
+      if (!hasContent(value)) continue;
+      const label = resolveManifestLabel(field.label, undefined, "en");
+      if (!hidden.includes(label)) hidden.push(label);
     }
   }
   return hidden;

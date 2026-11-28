@@ -26,6 +26,10 @@ export interface WebsiteEditorControl {
   options?: Array<{ label: string; value: string }>;
   required: boolean;
   itemFields?: WebsiteItemFieldSchema[];
+  /** Regex pattern (without delimiters) for client-side validation on text inputs. */
+  pattern?: string;
+  /** Message shown when the pattern fails to match. */
+  validationMessage?: string;
 }
 
 export interface WebsiteEditorSection {
@@ -153,14 +157,15 @@ const STORE_CONTROL_LABEL_KEYS: Record<string, string> = {
 };
 
 const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = [
-  { id: "business", title: "Business basics", slotIds: ["nav.logo", "footer.business", "nav.labels", "nav.cta"] },
-  { id: "hero", title: "Hero", slotIds: ["hero.image", "hero.headline", "hero.tagline", "hero.subtext", "hero.cta_secondary", "hero.focal_x", "hero.focal_y", "hero.fit"] },
+  { id: "business", title: "Business basics", slotIds: ["nav.logo", "footer.business", "nav.labels", "nav.cta", "nav.mobile_tab_bar"] },
+  { id: "hero", title: "Hero", slotIds: ["hero.image", "hero.headline", "hero.tagline", "hero.subtext", "hero.cta_secondary", "hero.focal_x", "hero.focal_y", "hero.fit", "hero.image_framing"] },
   { id: "promo", title: "Promotional banner (optional)", slotIds: ["promo.image", "promo.eyebrow", "promo.headline", "promo.text", "promo.button_label", "promo.button_link", "promo.end_date"] },
   { id: "highlights", title: "Highlights", slotIds: ["highlights.items"] },
-  { id: "trust-steps", title: "Trust and steps", slotIds: ["trust.items", "steps.items"] },
+  { id: "trust-steps", title: "Trust and steps", slotIds: ["trust.items", "steps.items", "trust.scrolling"] },
   { id: "store-trust", title: "Trust strip", slotIds: ["trust.copy"] },
   { id: "store-fulfilment", title: "Order fulfilment note", slotIds: ["product.fulfilment-note"] },
   { id: "menu", title: "Popular dishes (optional)", slotIds: ["menu.featured", "menu.image_fit"] },
+  { id: "picks", title: "Popular picks (optional)", slotIds: ["catalog.featured", "catalog.source", "catalog.related_items"] },
   { id: "featured", title: "Featured products", slotIds: ["home.featured"] },
   { id: "shop", title: "Shop page", slotIds: ["shop.density"] },
   { id: "about", title: "About", slotIds: ["about.caption", "about.headline", "about.subtitle", "about.photo", "about.text", "about.stats"] },
@@ -172,7 +177,8 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
     title: "Hours and location",
     slotIds: ["hours.table", "location.address", "location.phone", "location.directions", "locations.list"],
   },
-  { id: "contact", title: "Contact", slotIds: ["contact.address", "contact.phone", "contact.email", "contact.directions"] },
+  { id: "contact", title: "Contact", slotIds: ["contact.address", "contact.phone", "contact.email", "contact.whatsapp", "contact.directions"] },
+  { id: "services", title: "Services", slotIds: ["services.heading", "services.limit", "services.layout"] },
   { id: "cta-band", title: "Call to action banner", slotIds: ["cta.heading", "cta.button_label", "cta.button_link"] },
   { id: "footer", title: "Social and footer", slotIds: ["footer.socials", "footer.note"] },
 ];
@@ -180,6 +186,8 @@ const SECTION_LAYOUT: Array<{ id: string; title: string; slotIds: string[] }> = 
 const ALIASES: Record<string, string[]> = {
   "nav.cta": ["nav.cta", "hero.cta_primary"],
   "hours.table": ["hours.table", "hero.open_tag"],
+  // Showcase replaced the single hero.image slot with a multi-photo hero.images slot.
+  "hero.image": ["hero.image", "hero.images"],
 };
 
 function isFilled(value: unknown): boolean {
@@ -293,6 +301,8 @@ export function buildWebsiteEditorSections(
         max: slot.max,
         ...(slot.options ? { options: slot.options } : {}),
         required: availableIds.some((id) => byId.get(id)?.required),
+        ...(slot.pattern ? { pattern: slot.pattern } : {}),
+        ...(slot.validationMessage ? { validationMessage: slot.validationMessage } : {}),
         ...(ITEM_FIELDS[requestedId] || (template.id === "restaurant-savannah" && requestedId === "highlights.items")
           ? {
             itemFields: (() => {

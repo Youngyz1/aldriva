@@ -70,6 +70,8 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
   const [currentMenuItems, setCurrentMenuItems] = useState<V2MenuItemChoice[]>(menuItems);
   const [menuDrawerOpen, setMenuDrawerOpen] = useState(false);
   const [queueState, setQueueState] = useState(queue.getState());
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
+  const prevSaveStatusRef = useRef(queueState.status);
   const [openSectionId, setOpenSectionId] = useState("business");
   const [selectedPageSlug, setSelectedPageSlug] = useState(initialState.previewPages.find((page) => page.isHome)?.slug ?? initialState.previewPages[0]?.slug ?? "home");
   const [checklistOpen, setChecklistOpen] = useState(false);
@@ -193,6 +195,36 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
       console.error(`[website-draft-save] Save failed: ${queueState.code || "unknown"}`);
     }
   }, [queueState.status, queueState.code]);
+
+  // Showcase's preview renders server-side from the saved draft (see
+  // app/website-preview/[orgId]/page.tsx), so postMessage content patching
+  // alone never reflects it — bump a key on every save-success edge to make
+  // WebsitePreviewPanel reload the iframe.
+  useEffect(() => {
+    if (queueState.status === "saved" && prevSaveStatusRef.current !== "saved") {
+      setPreviewReloadKey((key) => key + 1);
+    }
+    prevSaveStatusRef.current = queueState.status;
+  }, [queueState.status]);
+
+  // Dishes live in their own table (menu_items), not the website draft, so
+  // adding one via the Menu drawer never goes through the save queue above —
+  // refreshMenuItems() below still needs to make it into Showcase's
+  // server-rendered preview body the same way a draft save does. Keyed on
+  // the sorted id set (not array identity): refreshMenuItems() always
+  // returns a new array reference even when nothing actually changed, which
+  // would otherwise reload the iframe on every refetch.
+  const menuItemsKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = currentMenuItems.map((item) => item.id).sort().join(",");
+    if (menuItemsKeyRef.current === null) {
+      menuItemsKeyRef.current = key;
+      return;
+    }
+    if (key === menuItemsKeyRef.current) return;
+    menuItemsKeyRef.current = key;
+    setPreviewReloadKey((count) => count + 1);
+  }, [currentMenuItems]);
 
   const sendSave = useCallback((draft: ContentDoc) => {
     queue.request(draft);
@@ -370,7 +402,7 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
         <div className="min-w-0"><p className="truncate text-sm font-semibold">{initialState.siteTitle}</p><p className="text-xs text-zinc-500">{initialState.websiteSlug}</p></div>
         <div className="flex flex-wrap items-center gap-2">
           <V2WebsiteLiveLink isPublished={initialState.isPublished} url={initialState.publicUrl} />
-          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${queueState.paused ? "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-200" : queueState.status === "saved" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200" : queueState.status === "failed" ? "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200" : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"}`} aria-live="polite">{queueState.paused ? "Conflict" : queueState.status === "saving" || queueState.pending ? "Draft · Saving" : queueState.status === "saved" ? "Saved" : queueState.status === "failed" ? `${storeT("saveFailed")} · ${getSaveFailedReason(queueState.code)}` : "Draft"}</span>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${queueState.paused ? "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-200" : queueState.status === "saved" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200" : queueState.status === "failed" ? "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200" : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"}`} aria-live="polite">{queueState.paused ? "Conflict" : queueState.status === "saving" || queueState.pending ? "Draft · Saving" : queueState.status === "saved" ? "Saved" : queueState.status === "failed" ? `${storeT("saveFailed")} · ${getSaveFailedReason(queueState.code)}${queueState.code ? ` (${queueState.code})` : ""}` : "Draft"}</span>
           {queueState.status === "failed" && !queueState.paused ? <button type="button" onClick={() => queue.retry()} className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-900 dark:border-amber-800 dark:text-amber-100">Retry save</button> : null}
           <button type="button" onClick={() => void handleDiscard()} disabled={!editable} className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-zinc-700">Discard</button>
           <button type="button" onClick={() => setChecklistOpen(true)} className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold dark:border-zinc-700">Publish checklist{checklistMissing.length ? ` · ${checklistMissing.length}` : ""}</button>
@@ -499,6 +531,9 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
             })}
             <OrderingPaymentsPanel
               business={panelBusiness}
+              organizerId={initialState.tenantId}
+              siteTimezone={initialState.storefront.timeZone}
+              acceptOrdersWhenClosed={initialState.storefront.acceptOrdersWhenClosed}
               template={template}
               canManage={canManageOfferings}
               hasActiveDish={currentMenuItems.length > 0}
@@ -522,6 +557,7 @@ export function V2WebsiteEditor({ initialState, menuItems, productChoices = [], 
           onOpenMenuEditor={canManageCommerce ? () => setMenuDrawerOpen(true) : undefined}
           offerings={storefrontOfferings}
           isOrderingLive={resolved.storefrontFeatures.ordering}
+          reloadKey={template.id === "showcase" ? previewReloadKey : undefined}
         />
         </div>
       </div>

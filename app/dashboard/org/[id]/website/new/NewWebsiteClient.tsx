@@ -8,6 +8,8 @@ interface NewWebsiteClientProps {
   previewBusinessName: string;
   previewBusinessLogo: string | null;
   initialCategory: WebsiteCategory;
+  /** Country-based suggestion only; the owner can change it before creating. */
+  initialCurrency?: string;
   canCreate: boolean;
 }
 
@@ -18,6 +20,7 @@ export default function NewWebsiteClient({
   previewBusinessName,
   previewBusinessLogo,
   initialCategory,
+  initialCurrency = "USD",
   canCreate,
 }: NewWebsiteClientProps) {
   return (
@@ -32,6 +35,7 @@ export default function NewWebsiteClient({
         businessName={previewBusinessName}
         businessLogo={previewBusinessLogo}
         initialCategory={initialCategory}
+        initialCurrency={initialCurrency}
         canCreate={canCreate}
       />
     </div>

@@ -49,13 +49,30 @@ type CourierOffer = {
   amount_to_collect: number | null;
   currency: string | null;
   estimated_ready_at: string | null;
+  scheduled_for: string | null;
+  order_status: string;
 };
+
+function formatCourierDateTime(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function formatCourierTime(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(date);
+}
 
 type AssignedOrder = {
   id: string;
   orderNumber: string;
   status: string;
   estimatedReadyAt: string | null;
+  scheduledFor: string | null;
   customerName: string | null;
   customerPhone: string | null;
   pickupName: string | null;
@@ -842,6 +859,11 @@ export default function CourierDashboard({
                 )}
 
                 <CardContent className="space-y-4 p-4 sm:p-5">
+                  {assigned.status === "ready" && (
+                    <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+                      Ready now — pick up at {assigned.pickupName || "the restaurant"}.
+                    </div>
+                  )}
                   {/* Embedded Live Map (when in transit) */}
                   {courierCoords && (
                     <div className="rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-2xs">
@@ -858,9 +880,13 @@ export default function CourierDashboard({
 
                   {/* Pickup & Destination Stepper Box */}
                   <div className="space-y-3 border-t border-zinc-200 pt-3.5 dark:border-zinc-800">
-                    {assigned.estimatedReadyAt && ["accepted", "preparing"].includes(assigned.status) && (
+                    {["accepted", "preparing"].includes(assigned.status) && (
                       <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                        Travel to the restaurant while the kitchen prepares the order. Expected ready time: <strong>{new Date(assigned.estimatedReadyAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong>.
+                        {formatCourierDateTime(assigned.scheduledFor)
+                          ? <>Scheduled pickup: <strong>{formatCourierDateTime(assigned.scheduledFor)}</strong>.</>
+                          : formatCourierTime(assigned.estimatedReadyAt)
+                          ? <>Travel to the restaurant while the kitchen prepares the order. Expected ready time: <strong>{formatCourierTime(assigned.estimatedReadyAt)}</strong>.</>
+                          : "ASAP — the kitchen will alert you when the order is ready."}
                       </div>
                     )}
                     <div className="flex items-start gap-3">
@@ -1110,9 +1136,15 @@ export default function CourierDashboard({
 
               {feed.offers.map((offer) => {
                 const hasCashToCollect = offer.amount_to_collect && offer.amount_to_collect > 0;
-                const readyAt = offer.estimated_ready_at
-                  ? new Date(offer.estimated_ready_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                  : null;
+                const scheduledAt = formatCourierDateTime(offer.scheduled_for);
+                const readyAt = formatCourierDateTime(offer.estimated_ready_at);
+                const timingLabel = offer.order_status === "ready"
+                  ? "Ready now — pick up"
+                  : scheduledAt
+                    ? `Scheduled for ${scheduledAt}`
+                    : readyAt
+                      ? `Estimated ready ${readyAt}`
+                      : "ASAP — kitchen will alert you when ready";
                 return (
                   <Card key={offer.offer_id} className="rounded-xl border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
                     <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 pb-3 pt-4">
@@ -1121,8 +1153,12 @@ export default function CourierDashboard({
                           <Bike className="h-4 w-4 text-orange-700" />
                           <span>Delivery Offer</span>
                         </CardTitle>
-                        <span className="rounded-full border border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950/40 px-2.5 py-0.5 text-[11px] font-bold text-orange-800 dark:text-orange-300">
-                          {readyAt ? `Expected ready ${readyAt}` : "Delivery opportunity"}
+                        <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                          offer.order_status === "ready"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                            : "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300"
+                        }`}>
+                          {timingLabel}
                         </span>
                       </div>
                     </CardHeader>
@@ -1234,7 +1270,7 @@ export default function CourierDashboard({
                     <h3 className="text-sm font-bold text-zinc-950 dark:text-white">No deliveries right now</h3>
                     <p className="text-xs text-zinc-500 max-w-sm mx-auto">
                       {isAvailable
-                        ? "You’re marked as available. New delivery orders will appear here automatically when kitchen orders are ready."
+                        ? "You’re marked as available. New delivery offers appear here after the kitchen accepts a delivery order."
                         : "You are currently offline. Turn your availability switch ON above to receive delivery offers."}
                     </p>
                 </div>

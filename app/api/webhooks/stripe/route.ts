@@ -8,7 +8,7 @@ import { processDonationReceipt } from "@/lib/receipt";
 import { processDonationCertificate } from "@/lib/certificate";
 import { markProductOrderPaid } from "@/lib/productOrders";
 import { notifyProductPurchase } from "@/lib/product-notifications";
-import { toMinorUnits } from "@/lib/money";
+import { toMinorUnits, fromMinorUnits } from "@/lib/money";
 import { handleStorefrontOrderPaymentSucceeded } from "@/lib/storefront-order-payments";
 import { createNotification } from "@/lib/notifications";
 import { BRAND } from "@/config/branding";
@@ -77,7 +77,7 @@ async function alertReconciliationFailure(params: {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const fromAddress = `${BRAND.name} Alerts <${process.env.RESEND_FROM_EMAIL || BRAND.contactEmail}>`;
-    await resend.emails.send({
+    const { error: sendErr } = await resend.emails.send({
       from: fromAddress,
       to: BRAND.supportEmail,
       subject: `[URGENT] Payment succeeded but ${params.kind} record was not created`,
@@ -95,6 +95,13 @@ async function alertReconciliationFailure(params: {
         </div>
       `,
     });
+    if (sendErr) {
+      console.error("[webhook] Resend rejected reconciliation alert email:", {
+        paymentIntentId: params.stripePaymentIntentId,
+        name: sendErr.name,
+        message: sendErr.message,
+      });
+    }
   } catch (err) {
     console.error("[webhook] Failed to send reconciliation alert email:", err);
   }
@@ -413,8 +420,7 @@ async function sendTicketEmail(params: {
 // ── payment_intent.succeeded ──────────────────────────────────────────────────
 
 async function handlePaymentIntentSucceeded(
-  pi: Stripe.PaymentIntent,
-  req: NextRequest
+  pi: Stripe.PaymentIntent
 ) {
   const meta = pi.metadata ?? {};
   const kind = meta.kind;
@@ -952,9 +958,185 @@ async function fulfillProductCart(
   }
 }
 
-async function handleCheckoutSessionCompleted(
+async function fulfillRentalBooking(
   session: Stripe.Checkout.Session,
-  req: NextRequest
+  meta: Stripe.Metadata
+) {
+  const bookingId = meta.rental_booking_id;
+  const organizerId = meta.organizer_id;
+  const piId = typeof session.payment_intent === "string" ? session.payment_intent : session.id;
+
+  if (!bookingId || !organizerId) {
+    console.error("[webhook] Missing rental_booking_id or organizer_id in rental session metadata");
+    return;
+  }
+
+  // ── Amount & currency verification ────────────────────────────────────────
+  const { data: snapshot, error: snapErr } = await supabaseAdmin
+    .from("rental_bookings")
+    .select("id, status, payment_status, rental_amount, amount_due_online, snapshot_currency, customer_email, customer_name, booking_number, starts_at, ends_at, organizer_id, business_id, snapshot_payment_policy, lookup_token")
+    .eq("id", bookingId)
+    .eq("organizer_id", organizerId)
+    .maybeSingle();
+
+  if (snapErr || !snapshot) {
+    console.error("[webhook] Rental booking not found or tenant mismatch:", snapErr?.message || bookingId);
+    return;
+  }
+
+  // ── Determine payment kind based on snapshot_payment_policy ─────────────────────────────────
+  const p_kind = snapshot.snapshot_payment_policy === "full_online" ? "rental_charge" : "advance";
+
+  // ── Amount validation ───────────────────────────────────────────────────────
+  const sessionCurrency = (session.currency ?? "").toUpperCase();
+  const bookingCurrency = (snapshot.snapshot_currency ?? "USD").toUpperCase();
+
+  if (
+    typeof session.amount_total !== "number" ||
+    !Number.isFinite(session.amount_total) ||
+    session.amount_total <= 0
+  ) {
+    throw new Error(
+      `Rental Checkout Session ${session.id} has an invalid amount_total.`
+    );
+  }
+
+  if (sessionCurrency !== bookingCurrency) {
+    const chargedAmount = fromMinorUnits(session.amount_total, sessionCurrency);
+    console.error(`[webhook] fulfillRentalBooking: currency mismatch — session=${sessionCurrency} booking=${bookingCurrency}`);
+    await alertReconciliationFailure({
+      kind: "rental",
+      stripePaymentIntentId: piId,
+      amount: chargedAmount,
+      currency: sessionCurrency,
+      buyerEmail: snapshot.customer_email,
+      rawMetadata: meta,
+      errorMessage: `Currency mismatch: Stripe session currency ${sessionCurrency} does not match booking snapshot_currency ${bookingCurrency}.`,
+    });
+    return;
+  }
+
+  const expectedAmount = Number(snapshot.amount_due_online);
+
+  if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
+    throw new Error(
+      `Rental booking ${bookingId} has an invalid amount_due_online value.`
+    );
+  }
+
+  const expectedMinor = toMinorUnits(expectedAmount, bookingCurrency);
+  const amountInMajor = fromMinorUnits(session.amount_total, sessionCurrency);
+
+  if (Math.abs(expectedMinor - session.amount_total) > 1) {
+    console.error(`[webhook] fulfillRentalBooking: amount mismatch — session=${session.amount_total} expected=${expectedMinor}`);
+    await alertReconciliationFailure({
+      kind: "rental",
+      stripePaymentIntentId: piId,
+      amount: amountInMajor,
+      currency: sessionCurrency,
+      buyerEmail: snapshot.customer_email,
+      rawMetadata: meta,
+      errorMessage: `Amount mismatch: Stripe charged ${session.amount_total} minor units but booking amount_due_online converts to ${expectedMinor} minor units.`,
+    });
+    return;
+  }
+
+  // ── Atomic payment processing ───────────────────────────────────────────────
+  // amountInMajor was already validated using fromMinorUnits above.
+
+  try {
+    const { data: paymentResult, error: rpcError } = await supabaseAdmin
+      .rpc("record_rental_payment", {
+        p_booking_id: bookingId,
+        p_organizer_id: organizerId,
+        p_kind: p_kind,
+        p_method: "stripe",
+        p_amount: amountInMajor,
+        p_currency: bookingCurrency.toLowerCase(),
+        p_stripe_session_id: session.id,
+        p_stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
+      })
+      .single();
+
+    if (rpcError) {
+      console.error("[webhook] record_rental_payment RPC error:", rpcError.message);
+      // Return HTTP 500 so Stripe will retry
+      throw new Error(rpcError.message);
+    }
+
+    const raw_paymentResult = paymentResult as {
+      out_payment_id: string;
+      out_payment_status: string;
+      out_booking_status: string;
+      out_was_new: boolean;
+      out_applied: boolean;
+    };
+    const result = {
+      payment_id: raw_paymentResult.out_payment_id,
+      new_payment_status: raw_paymentResult.out_payment_status,
+      new_booking_status: raw_paymentResult.out_booking_status,
+      was_new: raw_paymentResult.out_was_new,
+      applied: raw_paymentResult.out_applied,
+    };
+
+    // ── Post-processing based on RPC result ─────────────────────────────────────
+    // Send confirmation email ONLY when result.applied === true AND result.was_new === true
+    if (result.applied === true && result.was_new === true) {
+      // ── Owner notification ─────────────────────────────────────────────────────
+      const { data: organizer } = await supabaseAdmin
+        .from("organizers")
+        .select("user_id, name")
+        .eq("id", organizerId)
+        .maybeSingle();
+
+      const ownerUserId = organizer?.user_id;
+      if (ownerUserId) {
+        try {
+          await createNotification({
+            userId: ownerUserId,
+            type: "reservation_placed",
+            title: "Rental booking payment received",
+            body: `Booking #${snapshot.booking_number} from ${snapshot.customer_name} has been paid (${result.new_payment_status}).`,
+            link: `/dashboard/org/${organizerId}/rentals/${bookingId}`,
+            relatedType: "reservation",
+            relatedId: bookingId,
+          });
+        } catch (notifErr) {
+          console.error("[webhook] Failed to create in-app notification for rental booking:", notifErr);
+        }
+      }
+
+      // ── Customer email ─────────────────────────────────────────────────────────
+      // Central sender: logs email_sent / email_failed in rental_booking_events
+      // and never throws into the webhook.
+      try {
+        const { sendRentalEmail } = await import("@/lib/rental/emails");
+        await sendRentalEmail("payment_received", bookingId);
+      } catch (emailErr) {
+        console.error("[webhook] Failed to send customer rental email:", emailErr);
+      }
+
+      // Successfully processed with applied=true and was_new=true
+      console.log(`[webhook] fulfillRentalBooking: booking ${bookingId} processed successfully — payment_id=${result.payment_id}, status=${result.new_booking_status}, applied=${result.applied}`);
+      return;
+
+    } else {
+      // RPC returned with applied=false or was_new=false
+      // This includes refunds, refused payments, and duplicates
+      console.log(`[webhook] fulfillRentalBooking: booking ${bookingId} — RPC returned applied=${result.applied}, was_new=${result.was_new}. Returning HTTP 200 for idempotency.`);
+      // Return HTTP 200 to indicate successful processing (alert already written by DB)
+      return;
+    }
+
+  } catch (error: unknown) {
+    console.error("[webhook] fulfillRentalBooking error:", error);
+    // Re-throw to let the main error handler convert to HTTP 500
+    throw error;
+  }
+}
+
+async function handleCheckoutSessionCompleted(
+  session: Stripe.Checkout.Session
 ) {
   const meta = session.metadata ?? {};
 
@@ -1084,6 +1266,11 @@ async function handleCheckoutSessionCompleted(
 
   if (meta.kind === "product_cart") {
     await fulfillProductCart(session, meta);
+    return;
+  }
+
+  if (meta.kind === "rental") {
+    await fulfillRentalBooking(session, meta);
     return;
   }
 
@@ -1239,70 +1426,166 @@ async function handleCheckoutSessionCompleted(
   });
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+async function handleCheckoutSessionExpired(
+  session: Stripe.Checkout.Session
+) {
+  const sessionId = session.id;
+  if (!sessionId) return;
 
-export async function POST(req: NextRequest) {
-  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json(
-      { error: "Stripe not configured." },
-      { status: 500 }
+  const { data: updated, error } = await supabaseAdmin
+    .from("rental_checkout_sessions")
+    .update({ status: "expired" })
+    .eq("stripe_session_id", sessionId)
+    .eq("status", "open")
+    .select("id, booking_id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Failed to expire rental checkout session ${sessionId}: ${error.message}`
     );
+  }
+
+  if (updated) {
+    console.log(
+      `[webhook] Expired rental checkout session ${sessionId} for booking ${updated.booking_id}`
+    );
+  } else {
+    console.log(
+      `[webhook] Rental checkout session ${sessionId} was already completed, expired, or not found.`
+    );
+  }
+}
+async function handleChargeRefunded(charge: Stripe.Charge) {
+  const chargeId = charge.id;
+  const paymentIntentId =
+    typeof charge.payment_intent === "string"
+      ? charge.payment_intent
+      : null;
+
+  if (!paymentIntentId) {
+    console.log(`[webhook] Charge ${chargeId} has no payment intent; skipping rental refund lookup.`);
+    return;
+  }
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("Stripe secret key is not configured; cannot resolve rental refunds.");
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const sig = req.headers.get("stripe-signature");
-  const body = await req.text();
-
-  let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig!,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (err) {
-    console.error("[webhook] Signature verification failed:", err);
-    return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
-  }
+    // Resolve the original applied rental payment and its tenant.
+    const {
+      data: paymentRow,
+      error: paymentLookupError,
+    } = await supabaseAdmin
+      .from("rental_payments")
+      .select("booking_id, organizer_id, stripe_payment_intent_id")
+      .eq("stripe_payment_intent_id", paymentIntentId)
+      .eq("direction", "credit")
+      .eq("applied", true)
+      .in("kind", ["rental_charge", "advance", "balance"])
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
-  try {
-    if (event.type === "payment_intent.succeeded") {
-      await handlePaymentIntentSucceeded(
-        event.data.object as Stripe.PaymentIntent,
-        req
-      );
-    } else if (event.type === "checkout.session.completed") {
-      await handleCheckoutSessionCompleted(
-        event.data.object as Stripe.Checkout.Session,
-        req
-      );
-    } else if (event.type === "customer.subscription.deleted") {
-      await handleSubscriptionDeleted(
-        event.data.object as Stripe.Subscription
-      );
-    } else if (event.type === "invoice.payment_failed") {
-      await handleInvoicePaymentFailed(
-        event.data.object as Stripe.Invoice
+    if (paymentLookupError) {
+      throw new Error(
+        `Failed to resolve rental payment for ${paymentIntentId}: ${paymentLookupError.message}`
       );
     }
-  } catch (err) {
-    console.error("[webhook] Handler error:", err);
-    void insertSystemEvent({
-      kind: 'webhook_error',
-      severity_hint: 'error',
-      route: 'POST /api/webhooks/stripe',
-      status_code: 500,
-      error_code: event?.type ?? 'webhook_handler',
-      message: (err instanceof Error ? err.message : String(err)).slice(0, 2000),
-      metadata: { stripeEventId: (event as unknown as { id?: string })?.id, stripeType: event?.type },
-      source: 'aldriva',
-    });
+
+    if (!paymentRow?.booking_id || !paymentRow.organizer_id) {
+      console.log(
+        `[webhook] No applied rental payment found for payment intent ${paymentIntentId}; skipping non-rental refund.`
+      );
+      return;
+    }
+
+    const bookingId = paymentRow.booking_id;
+    const organizerId = paymentRow.organizer_id;
+
+    // Retrieve every refund, not merely the latest refund.
+    let startingAfter: string | undefined;
+    let processedCount = 0;
+
+    while (true) {
+      const refunds = await stripe.refunds.list({
+        charge: chargeId,
+        limit: 100,
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
+      });
+
+      for (const refund of refunds.data) {
+        // Pending, failed, and canceled refunds must not reduce rental payments.
+        if (refund.status !== "succeeded") continue;
+
+        const currency = refund.currency.toLowerCase();
+        const amountInMajor = fromMinorUnits(refund.amount, currency);
+
+        const { data: refundResult, error: refundError } = await supabaseAdmin
+          .rpc("record_rental_payment", {
+            p_booking_id: bookingId,
+            p_organizer_id: organizerId,
+            p_kind: "refund",
+            p_method: "stripe",
+            p_amount: amountInMajor,
+            p_currency: currency,
+            p_direction: "debit",
+            p_stripe_refund_id: refund.id,
+            p_stripe_payment_intent_id: paymentIntentId,
+            p_notes: `Stripe charge.refunded event for charge ${chargeId}`,
+          })
+          .single();
+
+        if (refundError) {
+          throw new Error(
+            `record_rental_payment failed for Stripe refund ${refund.id}: ${refundError.message}`
+          );
+        }
+
+        const raw_refundResult = refundResult as {
+      out_payment_id: string;
+      out_payment_status: string;
+      out_booking_status: string;
+      out_was_new: boolean;
+      out_applied: boolean;
+    };
+    const result = {
+      payment_id: raw_refundResult.out_payment_id,
+      new_payment_status: raw_refundResult.out_payment_status,
+      new_booking_status: raw_refundResult.out_booking_status,
+      was_new: raw_refundResult.out_was_new,
+      applied: raw_refundResult.out_applied,
+    };
+
+        processedCount += 1;
+
+        console.log(
+          `[webhook] Processed rental refund ${refund.id} for booking ${bookingId} — applied=${result.applied}, was_new=${result.was_new}`
+        );
+      }
+
+      if (!refunds.has_more || refunds.data.length === 0) break;
+
+      startingAfter = refunds.data[refunds.data.length - 1].id;
+    }
+
+    console.log(
+      `[webhook] Finished charge.refunded processing for ${chargeId}; successful refunds examined=${processedCount}.`
+    );
+  } catch (error: unknown) {
+    console.error(
+      `[webhook] Failed to process charge.refunded event for ${chargeId}:`,
+      error
+    );
+
+    // Propagate the failure so the POST handler returns HTTP 500
+    // and Stripe can retry this event.
+    throw error;
   }
-
-  return NextResponse.json({ received: true });
 }
-
 // ── Additional Webhook Sub-Handlers ──────────────────────────────────────────
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -1333,3 +1616,107 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   console.warn(`[webhook] Payment failed for invoice ${invoice.id} on subscription ${subId}. Retaining current status to allow Stripe dunning/retry flow to resolve.`);
 }
 
+
+export async function POST(req: NextRequest) {
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return NextResponse.json(
+      { error: "Stripe not configured." },
+      { status: 500 }
+    );
+  }
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const sig = req.headers.get("stripe-signature");
+
+  if (!sig) {
+    return NextResponse.json(
+      { error: "Missing Stripe signature." },
+      { status: 400 }
+    );
+  }
+
+  const body = await req.text();
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error("[webhook] Signature verification failed:", err);
+    return NextResponse.json(
+      { error: "Invalid signature." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    switch (event.type) {
+      case "payment_intent.succeeded":
+        await handlePaymentIntentSucceeded(
+          event.data.object as Stripe.PaymentIntent
+        );
+        break;
+
+      case "checkout.session.completed":
+        await handleCheckoutSessionCompleted(
+          event.data.object as Stripe.Checkout.Session
+        );
+        break;
+
+      case "checkout.session.expired":
+        await handleCheckoutSessionExpired(
+          event.data.object as Stripe.Checkout.Session
+        );
+        break;
+
+      case "charge.refunded":
+        await handleChargeRefunded(
+          event.data.object as Stripe.Charge
+        );
+        break;
+
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(
+          event.data.object as Stripe.Subscription
+        );
+        break;
+
+      case "invoice.payment_failed":
+        await handleInvoicePaymentFailed(
+          event.data.object as Stripe.Invoice
+        );
+        break;
+
+      default:
+        console.log(`[webhook] Unhandled event type: ${event.type}`);
+    }
+  } catch (err) {
+    console.error("[webhook] Handler error:", err);
+
+    void insertSystemEvent({
+      kind: "webhook_error",
+      severity_hint: "error",
+      route: "POST /api/webhooks/stripe",
+      status_code: 500,
+      error_code: event.type,
+      message: (
+        err instanceof Error ? err.message : String(err)
+      ).slice(0, 2000),
+      metadata: {
+        stripeEventId: event.id,
+        stripeType: event.type,
+      },
+      source: "aldriva",
+    });
+
+    return NextResponse.json(
+      { error: "Webhook handler failed." },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ received: true });
+}

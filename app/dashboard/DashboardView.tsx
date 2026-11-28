@@ -58,6 +58,14 @@ function SectionHeader({ title, action }: { title: string; action?: ReactNode })
   );
 }
 
+function ViewAllLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="text-xs font-black text-violet-700 hover:underline sm:text-sm">
+      {label}
+    </Link>
+  );
+}
+
 export default async function DashboardView({
   displayName,
   analytics,
@@ -112,14 +120,6 @@ export default async function DashboardView({
     { href: '/create-organizer', label: t('createOrganization'), className: 'border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50' },
   ];
 
-  function ViewAllLink({ href }: { href: string }) {
-    return (
-      <Link href={href} className="text-xs font-black text-violet-700 hover:underline sm:text-sm">
-        {t('viewAll')}
-      </Link>
-    );
-  }
-
   if (!hasOrganizers) {
     return (
       <div className="space-y-4 sm:space-y-6">
@@ -162,7 +162,7 @@ export default async function DashboardView({
 
       <section className="grid gap-4 sm:gap-6 xl:grid-cols-3">
         <div className={panelClass}>
-          <SectionHeader title={t('recentEvents')} action={<ViewAllLink href="/dashboard/events" />} />
+          <SectionHeader title={t('recentEvents')} action={<ViewAllLink href="/dashboard/events" label={t('viewAll')} />} />
           {events.length === 0 ? (
             <p className="text-sm font-medium text-zinc-500">{t('noEventsYet')}</p>
           ) : (
@@ -202,7 +202,7 @@ export default async function DashboardView({
         </div>
 
         <div className={panelClass}>
-          <SectionHeader title={t('recentDonations')} action={<ViewAllLink href="/dashboard/donations" />} />
+          <SectionHeader title={t('recentDonations')} action={<ViewAllLink href="/dashboard/donations" label={t('viewAll')} />} />
           {donations.length === 0 ? (
             <p className="text-sm font-medium text-zinc-500">{t('noDonationsYet')}</p>
           ) : (
@@ -221,7 +221,7 @@ export default async function DashboardView({
         </div>
 
         <div className={panelClass}>
-          <SectionHeader title={t('recentTicketSales')} action={<ViewAllLink href="/dashboard/attendees" />} />
+          <SectionHeader title={t('recentTicketSales')} action={<ViewAllLink href="/dashboard/attendees" label={t('viewAll')} />} />
           {ticketOrders.length === 0 ? (
             <p className="text-sm font-medium text-zinc-500">{t('noTicketSalesYet')}</p>
           ) : (
@@ -245,15 +245,15 @@ export default async function DashboardView({
 
       <section className="grid gap-4 sm:gap-6 xl:grid-cols-3">
         <div className={panelClass}>
-          <SectionHeader title={t('ticketTrend')} action={<ViewAllLink href="/dashboard/reports" />} />
+          <SectionHeader title={t('ticketTrend')} action={<ViewAllLink href="/dashboard/reports" label={t('viewAll')} />} />
           <TicketsChart data={chartTickets} />
         </div>
         <div className={panelClass}>
-          <SectionHeader title={t('revenueTrend')} action={<ViewAllLink href="/dashboard/reports" />} />
+          <SectionHeader title={t('revenueTrend')} action={<ViewAllLink href="/dashboard/reports" label={t('viewAll')} />} />
           <RevenueChart data={chartRevenue} />
         </div>
         <div className={panelClass}>
-          <SectionHeader title={t('donationTrend')} action={<ViewAllLink href="/dashboard/reports" />} />
+          <SectionHeader title={t('donationTrend')} action={<ViewAllLink href="/dashboard/reports" label={t('viewAll')} />} />
           <DonationsChart data={chartDonations} />
         </div>
       </section>

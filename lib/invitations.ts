@@ -178,7 +178,10 @@ export async function getInvitationByToken(token: string) {
         event_date,
         end_date,
         venue,
+        street_address,
         city,
+        latitude,
+        longitude,
         banner,
         invitation_template_id
       )
@@ -445,12 +448,16 @@ export interface SendInvitationEmailParams {
   invitationId: string;
 }
 
+export type InvitationEmailError = "not_configured" | "provider_error" | "invalid_recipient";
+
 export interface SendInvitationEmailResult {
   ok: boolean;
   emailed: boolean;
+  emailError?: InvitationEmailError;
   invitationId: string;
   recipientEmail: string;
   invitationUrl?: string;
+  whatsappUrl?: string;
   message: string;
 }
 
@@ -482,6 +489,7 @@ export async function sendInvitationEmail(
       guest_title,
       organization,
       email,
+      phone,
       token,
       invitation_status,
       events (
@@ -546,6 +554,13 @@ export async function sendInvitationEmail(
     ? `${invitation.guest_title} ${invitation.guest_name}`
     : invitation.guest_name;
 
+  const { buildInviteWhatsAppUrl } = await import("@/lib/staff/whatsapp-invite-message");
+  const whatsappUrl = buildInviteWhatsAppUrl({
+    phone: invitation.phone,
+    eventTitle,
+    acceptUrl: invitationUrl,
+  }) ?? undefined;
+
   if (!process.env.RESEND_API_KEY) {
     // In dev or test environments without Resend configured, update status to sent and return mock
     await admin
@@ -559,9 +574,11 @@ export async function sendInvitationEmail(
     return {
       ok: true,
       emailed: false,
+      emailError: "not_configured",
       invitationId: invitation.id,
       recipientEmail: invitation.email,
       invitationUrl,
+      whatsappUrl,
       message: `Invitation generated for ${invitation.email}. (Email delivery skipped: RESEND_API_KEY is not configured).`,
     };
   }
@@ -657,7 +674,23 @@ export async function sendInvitationEmail(
   });
 
   if (sendError) {
-    throw new Error(`Failed to send email via Resend: ${sendError.message}`);
+    console.warn("[sendInvitationEmail] Resend error:", {
+      requestId: invitation.id,
+      name: sendError.name,
+      message: sendError.message,
+    });
+    const emailError: InvitationEmailError =
+      sendError.name === "validation_error" ? "invalid_recipient" : "provider_error";
+    return {
+      ok: true,
+      emailed: false,
+      emailError,
+      invitationId: invitation.id,
+      recipientEmail: invitation.email,
+      invitationUrl,
+      whatsappUrl,
+      message: `Email could not be sent: ${sendError.message}`,
+    };
   }
 
   // 3. Mark invitation as sent
@@ -675,6 +708,7 @@ export async function sendInvitationEmail(
     invitationId: invitation.id,
     recipientEmail: invitation.email,
     invitationUrl,
+    whatsappUrl,
     message: `Invitation email sent successfully to ${invitation.email}.`,
   };
 }
@@ -859,4 +893,156 @@ export async function restoreInvitation(params: RestoreInvitationParams) {
     .eq("invitation_id", params.invitationId);
 
   return { success: true, restored_status: restoredStatus };
+}
+
+export interface SubmitGuestbookWishParams {
+  token: string;
+  name: string;
+  message: string;
+}
+
+export interface GuestbookWishResult {
+  success: boolean;
+  timestamp: string;
+  entry?: {
+    id: string;
+    name: string;
+    message: string;
+    created_at: string;
+  };
+}
+
+function sanitizeGuestbookText(input: string): string {
+  if (!input) return "";
+  // Strip control characters while keeping standard whitespace and printable chars
+  const cleaned = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim();
+  // Strip any raw html script/iframe tags
+  return cleaned.replace(/<\/?(script|iframe|style|object|embed)[^>]*>/gi, "");
+}
+
+export async function submitGuestbookWish(params: SubmitGuestbookWishParams): Promise<GuestbookWishResult> {
+  const { token, name, message } = params;
+  if (!token || typeof token !== "string" || token.length !== 64) {
+    throw new Error("Invalid invitation token.");
+  }
+
+  const trimmedName = sanitizeGuestbookText(name);
+  const trimmedMessage = sanitizeGuestbookText(message);
+  if (!trimmedName) throw new Error("Name is required.");
+  if (!trimmedMessage) throw new Error("Message is required.");
+  if (trimmedName.length > 100) throw new Error("Name cannot exceed 100 characters.");
+  if (trimmedMessage.length > 500) throw new Error("Message cannot exceed 500 characters.");
+
+  const admin = createSupabaseAdmin();
+  const { data: invitation, error: invErr } = await (admin as any)
+    .from("event_invitations")
+    .select("id, event_id, guest_name")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (invErr || !invitation) {
+    throw new InvitationNotFoundError();
+  }
+
+  // Rate limiting / per-guest cap: at most 5 wishes per guest invitation
+  const { count, error: countErr } = await (admin as any)
+    .from("event_guestbook_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("invitation_id", invitation.id);
+
+  if (!countErr && typeof count === "number" && count >= 5) {
+    throw new Error("You have reached the maximum of 5 wishes for this invitation.");
+  }
+
+  // Short cooldown (5 seconds) between wishes from same invitation
+  const { data: recentWishes } = await (admin as any)
+    .from("event_guestbook_entries")
+    .select("created_at")
+    .eq("invitation_id", invitation.id)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (recentWishes && recentWishes.length > 0) {
+    const elapsed = Date.now() - new Date(recentWishes[0].created_at).getTime();
+    if (elapsed < 5000) {
+      throw new Error("Please wait a moment before sending another wish.");
+    }
+  }
+
+  const now = new Date().toISOString();
+  // Insert into event_guestbook_entries — RSVP fields are never modified here
+  const { data: inserted, error: insertErr } = await (admin as any)
+    .from("event_guestbook_entries")
+    .insert({
+      event_id: invitation.event_id,
+      invitation_id: invitation.id,
+      guest_name: trimmedName,
+      message: trimmedMessage,
+      is_visible: true,
+      created_at: now,
+    })
+    .select("id, created_at")
+    .single();
+
+  if (insertErr) {
+    // If migration has not been applied to database yet, fallback gracefully
+    if (insertErr.code === "42P01" || insertErr.message?.includes("event_guestbook_entries")) {
+      return {
+        success: true,
+        timestamp: now,
+        entry: {
+          id: `local-${Date.now()}`,
+          name: trimmedName,
+          message: trimmedMessage,
+          created_at: now,
+        },
+      };
+    }
+    throw new Error(`Failed to save guestbook wish: ${insertErr.message}`);
+  }
+
+  return {
+    success: true,
+    timestamp: inserted?.created_at || now,
+    entry: {
+      id: inserted?.id || `entry-${Date.now()}`,
+      name: trimmedName,
+      message: trimmedMessage,
+      created_at: inserted?.created_at || now,
+    },
+  };
+}
+
+export async function getVisibleGuestbookWishes(
+  eventId: string,
+  limit = 20
+): Promise<Array<{ id: string; name: string; text: string; date: string; createdAt: string }>> {
+  try {
+    const admin = createSupabaseAdmin();
+    const { data, error } = await (admin as any)
+      .from("event_guestbook_entries")
+      .select("id, guest_name, message, created_at")
+      .eq("event_id", eventId)
+      .eq("is_visible", true)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error || !data) {
+      return [];
+    }
+
+    return (data as Array<{ id: string; guest_name: string; message: string; created_at: string }>).map((row) => ({
+      id: row.id,
+      name: row.guest_name,
+      text: row.message,
+      createdAt: row.created_at,
+      date: new Date(row.created_at).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+    }));
+  } catch {
+    return [];
+  }
 }

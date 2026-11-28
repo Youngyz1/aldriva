@@ -1,12 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createWebsiteFromV2Template } from "@/lib/actions/website-v2";
+import { STOREFRONT_CURRENCIES } from "@/lib/money";
 import {
   getOrCreateV2CreationAttempt,
   getV2CreateActionArgs,
@@ -32,6 +34,7 @@ interface GalleryCard {
 interface WebsiteV2TemplateGalleryClientProps {
   organizerId: string;
   initialCategory: WebsiteCategory;
+  initialCurrency?: string;
   cards: GalleryCard[];
   canCreate: boolean;
 }
@@ -39,21 +42,37 @@ interface WebsiteV2TemplateGalleryClientProps {
 export function WebsiteV2TemplateGalleryClient({
   organizerId,
   initialCategory,
+  initialCurrency = "USD",
   cards,
   canCreate,
 }: WebsiteV2TemplateGalleryClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const publicT = useTranslations("PublicSite");
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [currency, setCurrency] = useState(initialCurrency);
   const pendingRef = useRef(false);
   const attemptRef = useRef<V2CreationAttempt | null>(null);
+  const autoCreateRanRef = useRef(false);
   const categoryModel = getV2GalleryCategoryModel(initialCategory);
   const cardsById = new Map(cards.map((card) => [card.id, card]));
   const visibleCards = categoryModel.templates.flatMap((template) => {
     const card = cardsById.get(template.id);
     return card ? [card] : [];
   });
+
+  // Arriving from the public template preview's "Use this template" link
+  // (?templateId=showcase) auto-runs the same create flow a manual click
+  // would, so the visitor never has to find and re-click the card.
+  const autoCreateTemplateId = searchParams.get("templateId");
+  useEffect(() => {
+    if (!autoCreateTemplateId || autoCreateRanRef.current) return;
+    if (!canCreate || !cardsById.has(autoCreateTemplateId)) return;
+    autoCreateRanRef.current = true;
+    void handleCreateTemplate(autoCreateTemplateId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCreateTemplateId, canCreate]);
 
   async function handleCreateTemplate(templateId: string) {
     if (!canCreate || pendingRef.current) return;
@@ -79,7 +98,7 @@ export function WebsiteV2TemplateGalleryClient({
       const result = await createWebsiteFromV2Template(
         verifiedOrganizerId,
         selectedTemplateId,
-        options
+        { ...options, currency }
       );
       if (!result.success || !result.data) {
         setErrors((current) => ({
@@ -110,6 +129,26 @@ export function WebsiteV2TemplateGalleryClient({
         <p className="mt-1 text-xs text-muted-foreground">{publicT("categoryRecommendationOnly")}</p>
       </div>
 
+      <div className="max-w-sm space-y-1.5">
+        <label htmlFor="new-site-currency" className="block text-xs font-semibold text-zinc-900">
+          {publicT("storefrontCurrency")}
+        </label>
+        <select
+          id="new-site-currency"
+          className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm outline-none focus:border-orange-500 focus:bg-white"
+          value={currency}
+          onChange={(event) => setCurrency(event.target.value)}
+          disabled={!canCreate}
+        >
+          {STOREFRONT_CURRENCIES.map((code) => (
+            <option key={code} value={code}>
+              {code}
+            </option>
+          ))}
+        </select>
+        <p className="text-[11px] text-zinc-500">{publicT("storefrontCurrencyHint")}</p>
+      </div>
+
       <div className="grid gap-5 lg:grid-cols-2">
         {visibleCards.map((card) => {
           const busy = pendingTemplateId === card.id;
@@ -137,14 +176,23 @@ export function WebsiteV2TemplateGalleryClient({
                     {errors[card.id]}
                   </p>
                 ) : null}
-                <Button
-                  type="button"
-                  className="w-full"
-                  disabled={!canCreate || pendingTemplateId !== null}
-                  onClick={() => void handleCreateTemplate(card.id)}
-                >
-                  {busy ? "Creating website…" : "Use this template"}
-                </Button>
+                <div className={card.id === "showcase" ? "flex gap-2" : undefined}>
+                  {card.id === "showcase" ? (
+                    <Button type="button" variant="outline" className="w-full" asChild>
+                      <Link href="/templates/showcase/preview" target="_blank" rel="noopener noreferrer">
+                        Preview
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    className="w-full"
+                    disabled={!canCreate || pendingTemplateId !== null}
+                    onClick={() => void handleCreateTemplate(card.id)}
+                  >
+                    {busy ? "Creating website…" : "Use this template"}
+                  </Button>
+                </div>
               </div>
             </article>
           );

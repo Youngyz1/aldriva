@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from 'next-intl';
 import { IconChevronDown as ChevronDown, IconUser as UserRound } from "@tabler/icons-react";
 import { supabase } from "@/lib/supabase";
@@ -21,6 +21,7 @@ type Account = {
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const tNav = useTranslations('Navigation');
   const [account, setAccount] = useState<Account | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -73,11 +74,31 @@ export default function Navbar() {
   const initials = accountName ? accountName.slice(0, 2).toUpperCase() : "";
   const publicProfileHref = account ? `/profile/${account.id}` : "/login";
 
+  async function handleLogout() {
+    const { error } = await supabase.auth.signOut();
+    if (error) return;
+    setAccountOpen(false);
+    router.push("/login");
+  }
+
   // Invitation routes (/invitation/[token], /invitation/preview) are standalone chrome-free experiences
   // Round 4: Memories guest upload pages (/m/[token]) are standalone too.
   // Website editor previews (/website-preview/[orgId]) are standalone too —
   // they render inside the editor's device iframe and must carry no chrome.
-  if (pathname?.includes("/invitation") || pathname?.startsWith("/m/") || pathname?.startsWith("/website-preview/")) {
+  // Public template discovery (/templates) and its previews
+  // (/templates/showcase/preview[/menu|/contact|/order]) are standalone too:
+  // the preview renders its own site chrome (V2SiteHeader) and must stay
+  // chrome-free, and the index page is a deliberately bare entry point.
+  // This is a prefix match, not an exact match: the preview's home/menu/
+  // contact/order pages all share this one path prefix (as path segments),
+  // so an exact-pathname check would only ever match the bare/home URL and
+  // leak the platform navbar back in on every other page.
+  if (
+    pathname?.includes("/invitation") ||
+    pathname?.startsWith("/m/") ||
+    pathname?.startsWith("/website-preview/") ||
+    pathname?.startsWith("/templates")
+  ) {
     return null;
   }
 
@@ -94,8 +115,11 @@ export default function Navbar() {
     );
   }
 
+  const isDashboardOrProfile =
+    normalizedPath?.startsWith("/dashboard") || normalizedPath?.startsWith("/profile");
+
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md">
+    <header className="sticky top-0 z-[60] border-b border-border bg-background/95 backdrop-blur-md">
       {/*
         Layout: 3-column flex row.
         - Left (shrink-0):  BrandMark — always a fixed, small size.
@@ -113,17 +137,18 @@ export default function Navbar() {
         </Link>
 
         {/* Center: adaptive nav — shrinks freely via min-w-0 flex-1.
-            NO overflow-hidden: the dropdown panel is absolutely/fixed positioned
-            and must not be clipped by its flex ancestor. */}
+            Hidden on dashboard and profile pages where the sidebar and bottom bar replace it. */}
         <div className="flex min-w-0 flex-1 items-center justify-center">
-          <HomeAdaptiveNav />
+          {!isDashboardOrProfile && <HomeAdaptiveNav />}
         </div>
 
         {/* Right: EN|FR + notification bell + auth button — ALWAYS visible, never shrinks */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
 
-          {/* Language switcher — inline compact on mobile */}
-          <LanguageSwitcher variant="inline" />
+          {/* Language — show current on right, switch on click */}
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <LanguageSwitcher variant="inline" />
+          </div>
 
           {/* Notification bell — only when signed in */}
           {account && <NotificationBell userId={account.id} />}
@@ -163,10 +188,22 @@ export default function Navbar() {
                     {tNav('profile')}
                   </Link>
                   <div className="my-1 border-t border-zinc-100" />
-                  <div className="px-4 py-2">
-                    <p className="mb-2 text-xs font-black uppercase tracking-wider text-zinc-600">{tNav('language')}</p>
-                    <LanguageSwitcher variant="dropdown" />
-                  </div>
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
+                    onClick={() => setAccountOpen(false)}
+                  >
+                    {tNav('dashboard')}
+                  </Link>
+                  <div className="my-1 border-t border-zinc-100" />
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
+                    onClick={() => void handleLogout()}
+                  >
+                    {tNav('logout')}
+                  </button>
+                  <div className="px-4 py-2" />
                 </div>
               )}
             </div>

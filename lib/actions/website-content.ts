@@ -37,6 +37,7 @@ import {
   type SaveOperationalHoursInput,
   type SaveSiteTimezoneInput,
 } from "@/lib/operational-settings";
+import { saveStorefrontSettingsWithClient } from "@/lib/storefront-settings";
 import {
   checkPublishReadiness,
   resolveTemplateContent,
@@ -47,7 +48,7 @@ import { revalidatePath } from "next/cache";
 import { getOrgApproval } from "@/lib/server-approval";
 import { canPublish as canPublishApproval } from "@/lib/business-approval";
 import { buildWebsiteTemplateResolverInputs } from "@/lib/website-template-site-inputs";
-import { mergeWebsiteAppearanceMetadata, resolveStorefrontCurrency, WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
+import { mergeWebsiteAppearanceMetadata, resolveStorefrontCurrency, resolveStoredWebsiteAppearance, WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY } from "@/lib/website-v2-theme";
 import { getWebsiteCatalogAvailability } from "@/lib/website-catalog-adapter";
 import { getTranslations } from "next-intl/server";
 
@@ -423,23 +424,13 @@ export async function publishContentDraft(
     const normalizedGateContent = normalizeContent(gateDraft?.content ?? {});
     const gateExtras = normalizedGateContent.template_extras ?? {};
     const appearanceValue = gateExtras[WEBSITE_APPEARANCE_DRAFT_EXTRA_KEY];
-    let appearanceToPublish: { paletteId: string; backgroundPattern: "none" | "dots" } | null = null;
-    if (appearanceValue !== undefined) {
-      if (!flagship.palettes?.length || !flagship.patterns?.length || !appearanceValue || typeof appearanceValue !== "object" || Array.isArray(appearanceValue)) {
-        return { success: false, error: "The saved appearance is not supported by this template." };
-      }
-      const appearance = appearanceValue as Record<string, unknown>;
-      const paletteId = typeof appearance.paletteId === "string" && flagship.palettes.some((palette) => palette.id === appearance.paletteId)
-        ? appearance.paletteId
-        : undefined;
-      const backgroundPattern = typeof appearance.backgroundPattern === "string" && flagship.patterns.some((pattern) => pattern.id === appearance.backgroundPattern)
-        ? appearance.backgroundPattern as "none" | "dots"
-        : undefined;
-      if (!paletteId || !backgroundPattern) {
-        return { success: false, error: "The saved appearance contains an unknown palette or background pattern." };
-      }
-      appearanceToPublish = { paletteId, backgroundPattern };
-    }
+    // An unsupported/stale stored value (e.g. a palette the template no
+    // longer declares) falls back to the template default here rather than
+    // blocking publish — see resolveStoredWebsiteAppearance for the one
+    // source this and saveV2WebsiteAppearanceDraft both validate against.
+    const appearanceToPublish = appearanceValue !== undefined
+      ? resolveStoredWebsiteAppearance(flagship, appearanceValue)
+      : null;
     // Stale writes are rejected BEFORE any page materialization, so a
     // version-mismatched publish never creates or touches page rows. The RPC
     // stays the atomic authority (a race between this check and the RPC still
@@ -870,4 +861,71 @@ export async function saveSiteTimezone(
   revalidatePath(`/dashboard/org/${input.organizerId}/overview`);
   revalidatePath(`/dashboard/org/${input.organizerId}/settings`);
   return result;
+}
+
+export interface SaveStorefrontSettingsActionInput {
+  organizerId: string;
+  currency?: string;
+  timezone?: string;
+  acceptOrdersWhenClosed?: boolean;
+}
+
+/**
+ * Live save for the builder's Ordering & payments panel: storefront currency,
+ * site timezone and "accept orders when closed", all in tenant_websites
+ * metadata (jsonb, no migration). Manage roles only; invalid currency or
+ * timezone codes are rejected before anything is written.
+ */
+export async function saveStorefrontSettings(
+  input: SaveStorefrontSettingsActionInput
+): Promise<ContentActionResult<{ currency: string; timezone: string; acceptOrdersWhenClosed: boolean }>> {
+  const user = await getCurrentUser();
+  if (!user) return { success: false, code: "unauthorized", error: "Please sign in." };
+  const access = await checkTenantAccess(user.id, input.organizerId, [...ENTITY_ROLES_MANAGE]);
+  if (!access.hasAccess) {
+    return {
+      success: false,
+      code: "forbidden",
+      error: "Only owners, admins, and managers can change ordering settings.",
+    };
+  }
+
+  const admin = createSupabaseAdmin();
+  const { data: website } = await admin
+    .from("tenant_websites")
+    .select("id")
+    .eq("tenant_id", input.organizerId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!website) {
+    return { success: false, code: "not_found", error: "Create your website first to set ordering settings." };
+  }
+
+  const result = await saveStorefrontSettingsWithClient(
+    {
+      websiteId: (website as { id: string }).id,
+      ...(input.currency !== undefined ? { currency: input.currency } : {}),
+      ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
+      ...(input.acceptOrdersWhenClosed !== undefined
+        ? { acceptOrdersWhenClosed: input.acceptOrdersWhenClosed }
+        : {}),
+    },
+    admin as unknown as Parameters<typeof saveStorefrontSettingsWithClient>[1]
+  );
+  if (!result.success) {
+    // Fixed client strings per code (never echo lib internals — P1 F-08).
+    const message =
+      result.code === "validation_error"
+        ? "Choose a supported currency (ISO 4217) and a valid time zone."
+        : result.code === "not_found"
+          ? "Create your website first to set ordering settings."
+          : "Failed to save ordering settings.";
+    return { success: false, code: result.code, error: message };
+  }
+
+  revalidatePath(`/dashboard/org/${input.organizerId}/website`);
+  revalidatePath(`/dashboard/org/${input.organizerId}/overview`);
+  revalidatePath(`/dashboard/org/${input.organizerId}/settings`);
+  return { success: true, data: result.data };
 }

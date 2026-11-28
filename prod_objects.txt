@@ -1,0 +1,776 @@
+CREATE FUNCTION public.ai_set_updated_at() RETURNS trigger
+CREATE FUNCTION public.apply_agent_memory(p_approval_id uuid, p_require_approval boolean, p_op text, p_tenant_id uuid, p_agent_id uuid, p_fa
+CREATE FUNCTION public.assign_seat_to_invitation_atomic(p_event_id uuid, p_invitation_id uuid, p_seat_id uuid) RETURNS jsonb
+CREATE FUNCTION public.beneficiary_slugify(p_name text, p_seed uuid) RETURNS text
+CREATE FUNCTION public.can_create_fundraiser_for_organizer(p_organizer_id uuid) RETURNS boolean
+CREATE FUNCTION public.cancel_payout(p_payout_id uuid, p_cancelled_by uuid) RETURNS TABLE(payout_id uuid, status text, reversal_ledger_entry
+CREATE FUNCTION public.cascade_ticket_order_status() RETURNS trigger
+CREATE FUNCTION public.check_email_pending_deletion(p_email text) RETURNS TABLE(pending_id uuid, purge_date timestamp with time zone)
+CREATE FUNCTION public.check_in_ticket(p_ticket_instance_id uuid, p_scanned_by_user_id uuid DEFAULT NULL::uuid) RETURNS uuid
+CREATE FUNCTION public.check_menu_item_organizer_match() RETURNS trigger
+CREATE FUNCTION public.check_rate_limit(p_key text, p_limit integer, p_window_seconds integer) RETURNS TABLE(allowed boolean, remaining inte
+CREATE FUNCTION public.cleanup_business_organizer() RETURNS trigger
+CREATE FUNCTION public.complete_payout(p_payout_id uuid, p_external_payout_id text, p_processed_by uuid) RETURNS TABLE(payout_id uuid, statu
+CREATE FUNCTION public.create_website_from_template(p_website_id uuid, p_tenant_id uuid, p_slug text, p_site_title text, p_site_tagline text
+CREATE FUNCTION public.enforce_article_status_transition() RETURNS trigger
+CREATE FUNCTION public.enforce_business_status_transition() RETURNS trigger
+CREATE FUNCTION public.enforce_channel_asset_tenant_match() RETURNS trigger
+CREATE FUNCTION public.enforce_conversation_link_tenant() RETURNS trigger
+CREATE FUNCTION public.enforce_fundraiser_status_transition() RETURNS trigger
+CREATE FUNCTION public.enforce_homepage_promotion_moderation_fields() RETURNS trigger
+CREATE FUNCTION public.enforce_homepage_promotion_status_transition() RETURNS trigger
+CREATE FUNCTION public.enforce_message_tenant_match() RETURNS trigger
+CREATE FUNCTION public.enforce_organizer_capability_columns() RETURNS trigger
+CREATE FUNCTION public.enforce_payout_status_transition() RETURNS trigger
+CREATE FUNCTION public.enforce_product_status_transition() RETURNS trigger
+CREATE FUNCTION public.enforce_website_page_publishing_guard() RETURNS trigger
+CREATE FUNCTION public.ensure_business_organizer(business_row public.businesses) RETURNS uuid
+CREATE FUNCTION public.fail_payout(p_payout_id uuid, p_failure_reason text, p_processed_by uuid) RETURNS TABLE(payout_id uuid, status text, 
+CREATE FUNCTION public.get_comment_like_counts(ids uuid[]) RETURNS TABLE(comment_id uuid, cnt bigint)
+CREATE FUNCTION public.get_recipient_balance(p_recipient_id uuid, p_currency text DEFAULT 'usd'::text) RETURNS numeric
+CREATE FUNCTION public.get_total_raised() RETURNS numeric
+CREATE FUNCTION public.guard_business_owner_update() RETURNS trigger
+CREATE FUNCTION public.handle_new_user() RETURNS trigger
+CREATE FUNCTION public.is_entity_member(p_organizer_id uuid, p_roles text[] DEFAULT NULL::text[]) RETURNS boolean
+CREATE FUNCTION public.is_event_team_member(p_event_id uuid, p_roles text[] DEFAULT NULL::text[]) RETURNS boolean
+CREATE FUNCTION public.knowledge_chunks_tsv_trigger() RETURNS trigger
+CREATE FUNCTION public.menu_modifiers_valid(m jsonb) RETURNS boolean
+CREATE FUNCTION public.prevent_audit_log_modification() RETURNS trigger
+CREATE FUNCTION public.prevent_business_organizer_id_change() RETURNS trigger
+CREATE FUNCTION public.prevent_connected_account_tenant_change() RETURNS trigger
+CREATE FUNCTION public.prevent_is_business_auto_created_change() RETURNS trigger
+CREATE FUNCTION public.prevent_ledger_entry_mutation() RETURNS trigger
+CREATE FUNCTION public.prevent_profile_role_status_self_update() RETURNS trigger
+CREATE FUNCTION public.prevent_submission_self_approval() RETURNS trigger
+CREATE FUNCTION public.prevent_user_identity_self_approval() RETURNS trigger
+CREATE FUNCTION public.publish_page_draft(p_page_id uuid, p_expected_version integer DEFAULT NULL::integer) RETURNS jsonb
+CREATE FUNCTION public.recalculate_event_rating(target_id uuid) RETURNS void
+CREATE FUNCTION public.recalculate_fundraiser_rating(target_id uuid) RETURNS void
+CREATE FUNCTION public.recalculate_organizer_rating(target_id uuid) RETURNS void
+CREATE FUNCTION public.record_donation_and_credit(p_fundraiser_id uuid, p_donor_name text, p_donor_email text, p_user_id uuid, p_message tex
+CREATE FUNCTION public.record_product_paid_and_credit(p_order_id uuid, p_stripe_payment_intent_id text, p_crypto_payment_id text) RETURNS TA
+CREATE FUNCTION public.record_ticket_and_credit(p_event_id uuid, p_ticket_id uuid, p_seat_id uuid, p_seat_label text, p_buyer_email text, p_
+CREATE FUNCTION public.refund_ticket_instance(p_ticket_instance_id uuid) RETURNS uuid
+CREATE FUNCTION public.reject_agent_memory_versions_mutation() RETURNS trigger
+CREATE FUNCTION public.release_expired_seat_reservations() RETURNS void
+CREATE FUNCTION public.request_payout_and_debit(p_recipient_id uuid, p_amount numeric, p_currency text, p_destination_type text, p_destinati
+CREATE FUNCTION public.reserve_seats_atomic(p_seat_ids uuid[], p_hold_duration_minutes integer DEFAULT 5) RETURNS jsonb
+CREATE FUNCTION public.resolve_recipient(p_recipient_type text, p_user_id uuid DEFAULT NULL::uuid, p_organizer_id uuid DEFAULT NULL::uuid, p
+CREATE FUNCTION public.rls_auto_enable() RETURNS event_trigger
+CREATE FUNCTION public.set_beneficiary_slug() RETURNS trigger
+CREATE FUNCTION public.set_website_page_draft_metadata() RETURNS trigger
+CREATE FUNCTION public.touch_conversation_last_message() RETURNS trigger
+CREATE FUNCTION public.transition_payout_processing(p_payout_id uuid, p_processed_by uuid) RETURNS TABLE(payout_id uuid, status text)
+CREATE FUNCTION public.trg_link_business_organizer() RETURNS trigger
+CREATE FUNCTION public.trg_seed_organizer_owner_member() RETURNS trigger
+CREATE FUNCTION public.update_agent_memory_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_agent_tasks_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_agents_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_ai_provider_configs_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_articles_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_business_branches_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_businesses_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_channel_assets_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_connected_accounts_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_conversations_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_customer_identities_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_fundraiser_raised() RETURNS trigger
+CREATE FUNCTION public.update_homepage_promotions_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_incidents_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_knowledge_documents_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_menu_items_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_menu_sections_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_notification_preferences_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_product_orders_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_products_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_rating_aggregates() RETURNS trigger
+CREATE FUNCTION public.update_service_tiers_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_services_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_tenant_websites_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_tool_definitions_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_website_navigation_updated_at() RETURNS trigger
+CREATE FUNCTION public.update_website_pages_updated_at() RETURNS trigger
+CREATE INDEX beneficiaries_type_idx ON public.beneficiaries USING btree (type);
+CREATE INDEX beneficiaries_user_id_idx ON public.beneficiaries USING btree (user_id);
+CREATE INDEX fundraisers_beneficiary_id_idx ON public.fundraisers USING btree (beneficiary_id);
+CREATE INDEX fundraisers_beneficiary_type_idx ON public.fundraisers USING btree (beneficiary_type);
+CREATE INDEX idx_agent_memory_expiry ON public.agent_memory USING btree (expires_at) WHERE ((status = 'active'::text) AND (expires_at IS NOT
+CREATE INDEX idx_agent_memory_scope ON public.agent_memory USING btree (tenant_id NULLS FIRST, agent_id NULLS FIRST, status) WHERE (status =
+CREATE INDEX idx_agent_memory_versions_fact ON public.agent_memory_versions USING btree (fact_id, version DESC);
+CREATE INDEX idx_agent_reports_agent_id ON public.agent_reports USING btree (agent_id, created_at DESC);
+CREATE INDEX idx_agent_reports_tenant_id ON public.agent_reports USING btree (tenant_id, created_at DESC);
+CREATE INDEX idx_agent_runs_agent_id ON public.agent_runs USING btree (agent_id, created_at DESC);
+CREATE INDEX idx_agent_runs_status ON public.agent_runs USING btree (status, created_at DESC);
+CREATE INDEX idx_agent_runs_task_id ON public.agent_runs USING btree (task_id);
+CREATE INDEX idx_agent_runs_tenant_id ON public.agent_runs USING btree (tenant_id, created_at DESC) WHERE (tenant_id IS NOT NULL);
+CREATE INDEX idx_agent_steps_run_id ON public.agent_steps USING btree (run_id, seq);
+CREATE INDEX idx_agent_tasks_agent_id ON public.agent_tasks USING btree (agent_id, created_at DESC);
+CREATE INDEX idx_agent_tasks_claim ON public.agent_tasks USING btree (run_after NULLS FIRST, created_at) WHERE (status = 'queued'::text);
+CREATE INDEX idx_agent_tasks_lease ON public.agent_tasks USING btree (lease_expires_at) WHERE (lease_expires_at IS NOT NULL);
+CREATE INDEX idx_agent_tasks_status ON public.agent_tasks USING btree (status, created_at DESC);
+CREATE INDEX idx_agent_tasks_tenant_id ON public.agent_tasks USING btree (tenant_id, created_at DESC) WHERE (tenant_id IS NOT NULL);
+CREATE INDEX idx_agent_tools_agent_id ON public.agent_tools USING btree (agent_id);
+CREATE INDEX idx_agent_versions_agent_id ON public.agent_versions USING btree (agent_id, version DESC);
+CREATE INDEX idx_agents_department ON public.agents USING btree (department);
+CREATE INDEX idx_agents_status ON public.agents USING btree (status) WHERE (status = 'active'::text);
+CREATE INDEX idx_agents_tenant_id ON public.agents USING btree (tenant_id) WHERE (tenant_id IS NOT NULL);
+CREATE INDEX idx_ai_content_calendar_created_at ON public.ai_content_calendar USING btree (created_at DESC);
+CREATE INDEX idx_ai_content_calendar_status ON public.ai_content_calendar USING btree (status);
+CREATE INDEX idx_ai_content_items_content_type ON public.ai_content_items USING btree (content_type);
+CREATE INDEX idx_ai_content_items_created_at ON public.ai_content_items USING btree (created_at DESC);
+CREATE INDEX idx_ai_content_items_flagged ON public.ai_content_items USING btree (guard_result) WHERE (guard_result <> 'pass'::text);
+CREATE INDEX idx_ai_content_items_published ON public.ai_content_items USING btree (published) WHERE (published = true);
+CREATE INDEX idx_ai_content_items_source_id ON public.ai_content_items USING btree (source_id);
+CREATE INDEX idx_ai_conversations_admin_id ON public.ai_conversations USING btree (admin_id);
+CREATE INDEX idx_ai_conversations_created_at ON public.ai_conversations USING btree (created_at DESC);
+CREATE INDEX idx_ai_guard_rejections_category ON public.ai_guard_rejections USING btree (category);
+CREATE INDEX idx_ai_guard_rejections_context ON public.ai_guard_rejections USING btree (context);
+CREATE INDEX idx_ai_guard_rejections_created_at ON public.ai_guard_rejections USING btree (created_at DESC);
+CREATE INDEX idx_ai_guard_rejections_tenant_id ON public.ai_guard_rejections USING btree (tenant_id) WHERE (tenant_id IS NOT NULL);
+CREATE INDEX idx_ai_knowledge_docs_category ON public.ai_knowledge_docs USING btree (category) WHERE (active = true);
+CREATE INDEX idx_ai_knowledge_docs_tags ON public.ai_knowledge_docs USING gin (tags) WHERE (active = true);
+CREATE INDEX idx_ai_messages_conversation_id ON public.ai_messages USING btree (conversation_id, created_at);
+CREATE INDEX idx_ai_provider_configs_tenant_id ON public.ai_provider_configs USING btree (tenant_id);
+CREATE INDEX idx_ai_tool_invocations_conversation_id ON public.ai_tool_invocations USING btree (conversation_id) WHERE (conversation_id IS N
+CREATE INDEX idx_ai_tool_invocations_tenant_id ON public.ai_tool_invocations USING btree (tenant_id) WHERE (tenant_id IS NOT NULL);
+CREATE INDEX idx_ai_tool_invocations_tool_created ON public.ai_tool_invocations USING btree (tool_name, created_at DESC);
+CREATE INDEX idx_approvals_agent_id ON public.approvals USING btree (requested_by_agent_id, created_at DESC);
+CREATE INDEX idx_approvals_approved_poll ON public.approvals USING btree (action, expires_at, created_at) WHERE ((status = 'approved'::text)
+CREATE INDEX idx_approvals_status ON public.approvals USING btree (status, expires_at) WHERE (status = 'pending'::text);
+CREATE INDEX idx_approvals_tenant_id ON public.approvals USING btree (tenant_id, created_at DESC);
+CREATE INDEX idx_article_audios_article_id ON public.article_audios USING btree (article_id);
+CREATE INDEX idx_article_audios_lookup ON public.article_audios USING btree (article_id, content_hash, status);
+CREATE INDEX idx_articles_categories ON public.articles USING gin (categories);
+CREATE INDEX idx_articles_organizer_id ON public.articles USING btree (organizer_id);
+CREATE INDEX idx_articles_owner_id ON public.articles USING btree (owner_id);
+CREATE INDEX idx_articles_public_listing ON public.articles USING btree (status, visibility, published_at DESC);
+CREATE INDEX idx_articles_scheduled_for ON public.articles USING btree (scheduled_for) WHERE (status = 'scheduled'::text);
+CREATE INDEX idx_articles_tags ON public.articles USING gin (tags);
+CREATE INDEX idx_business_branches_business_id ON public.business_branches USING btree (business_id);
+CREATE INDEX idx_business_moderation_events_business_created ON public.business_moderation_events USING btree (business_id, created_at DESC)
+CREATE INDEX idx_business_moderation_events_decision_created ON public.business_moderation_events USING btree (decision, created_at DESC);
+CREATE INDEX idx_businesses_owner_id ON public.businesses USING btree (owner_id);
+CREATE INDEX idx_businesses_slug ON public.businesses USING btree (slug);
+CREATE INDEX idx_businesses_status_flagged ON public.businesses USING btree (status, is_flagged);
+CREATE INDEX idx_channel_assets_connected_account_id ON public.channel_assets USING btree (connected_account_id);
+CREATE INDEX idx_channel_assets_tenant_id ON public.channel_assets USING btree (tenant_id);
+CREATE INDEX idx_comments_import_batch ON public.comments USING btree (import_batch_id) WHERE (import_batch_id IS NOT NULL);
+CREATE INDEX idx_comments_target ON public.comments USING btree (target_type, target_id, status, created_at DESC);
+CREATE INDEX idx_comments_user_id ON public.comments USING btree (user_id);
+CREATE INDEX idx_connected_accounts_status ON public.connected_accounts USING btree (status);
+CREATE INDEX idx_connected_accounts_tenant_id ON public.connected_accounts USING btree (tenant_id);
+CREATE INDEX idx_conversations_channel_asset_id ON public.conversations USING btree (channel_asset_id) WHERE (channel_asset_id IS NOT NULL);
+CREATE INDEX idx_conversations_customer_identity_id ON public.conversations USING btree (customer_identity_id) WHERE (customer_identity_id I
+CREATE INDEX idx_conversations_tenant_id ON public.conversations USING btree (tenant_id);
+CREATE INDEX idx_conversations_tenant_last_message ON public.conversations USING btree (tenant_id, last_message_at DESC);
+CREATE INDEX idx_customer_identities_aldriva_user ON public.customer_identities USING btree (aldriva_user_id) WHERE (aldriva_user_id IS NOT 
+CREATE INDEX idx_customer_identities_tenant_id ON public.customer_identities USING btree (tenant_id);
+CREATE INDEX idx_donations_import_batch ON public.donations USING btree (import_batch_id) WHERE (import_batch_id IS NOT NULL);
+CREATE INDEX idx_donations_user_id ON public.donations USING btree (user_id);
+CREATE INDEX idx_entity_members_organizer_id ON public.entity_members USING btree (organizer_id);
+CREATE INDEX idx_entity_members_user_id ON public.entity_members USING btree (user_id);
+CREATE INDEX idx_event_audit_logs_actor ON public.event_audit_logs USING btree (actor_user_id);
+CREATE INDEX idx_event_audit_logs_event_action ON public.event_audit_logs USING btree (event_id, action);
+CREATE INDEX idx_event_audit_logs_event_created ON public.event_audit_logs USING btree (event_id, created_at DESC);
+CREATE INDEX idx_event_invitations_email ON public.event_invitations USING btree (email);
+CREATE INDEX idx_event_invitations_event_id ON public.event_invitations USING btree (event_id);
+CREATE INDEX idx_event_invitations_import_batch ON public.event_invitations USING btree (import_batch_id) WHERE (import_batch_id IS NOT NULL
+CREATE INDEX idx_event_invitations_lifecycle ON public.event_invitations USING btree (lifecycle_state, event_id);
+CREATE INDEX idx_event_invitations_status ON public.event_invitations USING btree (invitation_status, rsvp_status);
+CREATE INDEX idx_event_invitations_token ON public.event_invitations USING btree (token);
+CREATE INDEX idx_event_team_invitations_email_status ON public.event_team_invitations USING btree (email, status);
+CREATE INDEX idx_event_team_invitations_event ON public.event_team_invitations USING btree (event_id);
+CREATE INDEX idx_event_team_members_event_id ON public.event_team_members USING btree (event_id);
+CREATE INDEX idx_event_team_members_user_id ON public.event_team_members USING btree (user_id);
+CREATE INDEX idx_eventbrite_sources_enabled ON public.eventbrite_sources USING btree (enabled);
+CREATE INDEX idx_eventbrite_sources_user_id ON public.eventbrite_sources USING btree (user_id);
+CREATE INDEX idx_events_category ON public.events USING btree (category);
+CREATE INDEX idx_events_category_subcategory ON public.events USING btree (category, subcategory);
+CREATE INDEX idx_events_invitation_template_id ON public.events USING btree (invitation_template_id);
+CREATE INDEX idx_events_is_featured ON public.events USING btree (is_featured);
+CREATE INDEX idx_events_status ON public.events USING btree (status);
+CREATE INDEX idx_events_subcategory ON public.events USING btree (subcategory);
+CREATE INDEX idx_events_visibility ON public.events USING btree (visibility);
+CREATE INDEX idx_follows_follower_id ON public.follows USING btree (follower_id);
+CREATE INDEX idx_follows_following_id ON public.follows USING btree (following_id);
+CREATE INDEX idx_fundraiser_media_fundraiser_id ON public.fundraiser_media USING btree (fundraiser_id);
+CREATE INDEX idx_fundraiser_media_position ON public.fundraiser_media USING btree (fundraiser_id, "position");
+CREATE INDEX idx_fundraiser_updates_fundraiser_created ON public.fundraiser_updates USING btree (fundraiser_id, created_at DESC);
+CREATE INDEX idx_fundraisers_category ON public.fundraisers USING btree (category);
+CREATE INDEX idx_fundraisers_is_featured ON public.fundraisers USING btree (is_featured);
+CREATE INDEX idx_fundraisers_organizer_id ON public.fundraisers USING btree (organizer_id);
+CREATE INDEX idx_gofundme_sources_enabled ON public.gofundme_sources USING btree (enabled);
+CREATE INDEX idx_gofundme_sources_user_id ON public.gofundme_sources USING btree (user_id);
+CREATE INDEX idx_guest_import_batches_event_id ON public.guest_import_batches USING btree (event_id);
+CREATE INDEX idx_guest_import_batches_status ON public.guest_import_batches USING btree (status, event_id);
+CREATE INDEX idx_guest_import_rows_batch_id ON public.guest_import_rows USING btree (batch_id);
+CREATE INDEX idx_guest_import_rows_status ON public.guest_import_rows USING btree (batch_id, status);
+CREATE INDEX idx_homepage_promotions_active_visible_schedule ON public.homepage_promotions USING btree (status, is_visible, starts_at, ends_
+CREATE INDEX idx_homepage_promotions_created_by ON public.homepage_promotions USING btree (created_by);
+CREATE INDEX idx_homepage_promotions_entity ON public.homepage_promotions USING btree (entity_type, entity_slug);
+CREATE INDEX idx_homepage_promotions_priority_position ON public.homepage_promotions USING btree (priority DESC, "position");
+CREATE INDEX idx_homepage_promotions_status ON public.homepage_promotions USING btree (status);
+CREATE INDEX idx_incident_events_event_id ON public.incident_events USING btree (event_id);
+CREATE INDEX idx_incident_events_incident_id ON public.incident_events USING btree (incident_id);
+CREATE INDEX idx_incidents_dedupe_status ON public.incidents USING btree (dedupe_key, status) WHERE (status = ANY (ARRAY['open'::text, 'inve
+CREATE INDEX idx_incidents_status_severity ON public.incidents USING btree (status, severity, updated_at DESC);
+CREATE INDEX idx_incidents_tenant_id ON public.incidents USING btree (tenant_id, updated_at DESC) WHERE (tenant_id IS NOT NULL);
+CREATE INDEX idx_invitation_templates_category ON public.invitation_templates USING btree (category);
+CREATE INDEX idx_invitation_templates_is_active_sort ON public.invitation_templates USING btree (is_active, sort_order);
+CREATE INDEX idx_knowledge_chunks_content_trgm ON public.knowledge_chunks USING gin (content public.gin_trgm_ops);
+CREATE INDEX idx_knowledge_chunks_document_id ON public.knowledge_chunks USING btree (document_id);
+CREATE INDEX idx_knowledge_chunks_tenant_id ON public.knowledge_chunks USING btree (tenant_id);
+CREATE INDEX idx_knowledge_chunks_tsv ON public.knowledge_chunks USING gin (tsv);
+CREATE INDEX idx_knowledge_document_versions_document_id ON public.knowledge_document_versions USING btree (document_id, version DESC);
+CREATE INDEX idx_knowledge_documents_category ON public.knowledge_documents USING btree (category) WHERE (status = 'approved'::text);
+CREATE INDEX idx_knowledge_documents_content_trgm ON public.knowledge_documents USING gin (content public.gin_trgm_ops);
+CREATE INDEX idx_knowledge_documents_status ON public.knowledge_documents USING btree (status);
+CREATE INDEX idx_knowledge_documents_tags ON public.knowledge_documents USING gin (tags) WHERE (status = 'approved'::text);
+CREATE INDEX idx_knowledge_documents_tenant_id ON public.knowledge_documents USING btree (tenant_id);
+CREATE INDEX idx_knowledge_documents_title_trgm ON public.knowledge_documents USING gin (title public.gin_trgm_ops);
+CREATE INDEX idx_menu_items_allergens_gin ON public.menu_items USING gin (allergens);
+CREATE INDEX idx_menu_items_dietary_tags_gin ON public.menu_items USING gin (dietary_tags);
+CREATE INDEX idx_menu_items_organizer_active ON public.menu_items USING btree (organizer_id, is_active) WHERE (is_active = true);
+CREATE INDEX idx_menu_items_organizer_id ON public.menu_items USING btree (organizer_id);
+CREATE INDEX idx_menu_items_section_id ON public.menu_items USING btree (section_id);
+CREATE INDEX idx_menu_items_section_position ON public.menu_items USING btree (section_id, "position");
+CREATE INDEX idx_menu_sections_organizer_id ON public.menu_sections USING btree (organizer_id);
+CREATE INDEX idx_menu_sections_organizer_position ON public.menu_sections USING btree (organizer_id, "position");
+CREATE INDEX idx_messages_conversation_id ON public.messages USING btree (conversation_id);
+CREATE INDEX idx_messages_tenant_id ON public.messages USING btree (tenant_id);
+CREATE INDEX idx_notification_preferences_tenant_id ON public.notification_preferences USING btree (tenant_id);
+CREATE INDEX idx_notifications_user_created ON public.notifications USING btree (user_id, created_at DESC);
+CREATE INDEX idx_notifications_user_unread ON public.notifications USING btree (user_id) WHERE (read_at IS NULL);
+CREATE INDEX idx_offline_conflicts_event_id ON public.offline_scan_conflicts USING btree (event_id);
+CREATE INDEX idx_offline_conflicts_instance_id ON public.offline_scan_conflicts USING btree (ticket_instance_id);
+CREATE INDEX idx_offline_conflicts_scan_id ON public.offline_scan_conflicts USING btree (offline_scan_id);
+CREATE INDEX idx_org_verification_submissions_organizer_created ON public.organizer_verification_submissions USING btree (organizer_id, crea
+CREATE INDEX idx_org_verification_submissions_organizer_id ON public.organizer_verification_submissions USING btree (organizer_id);
+CREATE INDEX idx_org_verification_submissions_status ON public.organizer_verification_submissions USING btree (status);
+CREATE INDEX idx_organizer_follows_organizer_id ON public.organizer_follows USING btree (organizer_id);
+CREATE INDEX idx_organizer_follows_user_id ON public.organizer_follows USING btree (user_id);
+CREATE INDEX idx_organizer_status_audit_created_at ON public.organizer_status_audit USING btree (created_at DESC);
+CREATE INDEX idx_organizer_status_audit_organizer_id ON public.organizer_status_audit USING btree (organizer_id);
+CREATE INDEX idx_organizers_org_type ON public.organizers USING btree (org_type);
+CREATE INDEX idx_organizers_status ON public.organizers USING btree (status);
+CREATE INDEX idx_organizers_visibility ON public.organizers USING btree (visibility);
+CREATE INDEX idx_payment_reconciliation_failures_unresolved ON public.payment_reconciliation_failures USING btree (created_at) WHERE (resolv
+CREATE INDEX idx_payouts_recipient_currency_status ON public.payouts USING btree (recipient_id, currency, status);
+CREATE INDEX idx_payouts_status_created_at ON public.payouts USING btree (status, created_at DESC);
+CREATE INDEX idx_product_assets_product_position ON public.product_assets USING btree (product_id, "position");
+CREATE INDEX idx_product_assets_product_preview ON public.product_assets USING btree (product_id) WHERE (is_preview = true);
+CREATE INDEX idx_product_downloads_asset_id ON public.product_downloads USING btree (asset_id);
+CREATE INDEX idx_product_downloads_buyer_id ON public.product_downloads USING btree (buyer_id);
+CREATE INDEX idx_product_downloads_order_id ON public.product_downloads USING btree (order_id);
+CREATE INDEX idx_product_downloads_product_created ON public.product_downloads USING btree (product_id, created_at DESC);
+CREATE INDEX idx_product_orders_buyer_id ON public.product_orders USING btree (buyer_id);
+CREATE INDEX idx_product_orders_crypto_payment_id ON public.product_orders USING btree (crypto_payment_id);
+CREATE INDEX idx_product_orders_product_id ON public.product_orders USING btree (product_id);
+CREATE INDEX idx_product_orders_stripe_payment_intent_id ON public.product_orders USING btree (stripe_payment_intent_id);
+CREATE INDEX idx_product_orders_stripe_session_id ON public.product_orders USING btree (stripe_session_id);
+CREATE INDEX idx_products_business_id ON public.products USING btree (business_id);
+CREATE INDEX idx_products_category ON public.products USING btree (category) WHERE (category IS NOT NULL);
+CREATE INDEX idx_products_owner_id ON public.products USING btree (owner_id);
+CREATE INDEX idx_products_product_type ON public.products USING btree (product_type);
+CREATE INDEX idx_products_public_listing ON public.products USING btree (status, created_at DESC);
+CREATE INDEX idx_products_slug ON public.products USING btree (slug);
+CREATE INDEX idx_products_status_type_created ON public.products USING btree (status, product_type, created_at DESC);
+CREATE INDEX idx_products_tags_gin ON public.products USING gin (tags);
+CREATE INDEX idx_profile_verification_audit_profile_id ON public.profile_verification_audit USING btree (profile_id);
+CREATE INDEX idx_profiles_locale ON public.profiles USING btree (locale) WHERE (locale IS NOT NULL);
+CREATE INDEX idx_qa_results_run ON public.qa_test_results USING btree (run_id);
+CREATE INDEX idx_qa_runs_claim ON public.qa_runs USING btree (status, created_at) WHERE (status = 'approved'::text);
+CREATE INDEX idx_qa_runs_idempotency ON public.qa_runs USING btree (idempotency_key);
+CREATE INDEX idx_qa_runs_suite_created ON public.qa_runs USING btree (suite, created_at DESC);
+CREATE INDEX idx_rate_limits_window_start ON public.rate_limits USING btree (window_start);
+CREATE INDEX idx_recipient_ledger_entries_recipient_currency ON public.recipient_ledger_entries USING btree (recipient_id, currency);
+CREATE INDEX idx_seats_assigned_invitation_id ON public.seats USING btree (assigned_invitation_id) WHERE (assigned_invitation_id IS NOT NULL
+CREATE INDEX idx_seats_event_id ON public.seats USING btree (event_id);
+CREATE INDEX idx_seats_is_vip ON public.seats USING btree (event_id, is_vip) WHERE (is_vip = true);
+CREATE INDEX idx_seats_layout_id ON public.seats USING btree (layout_id);
+CREATE INDEX idx_seats_object_type ON public.seats USING btree (layout_id, object_type);
+CREATE INDEX idx_seats_spatial ON public.seats USING btree (layout_id, x, y) WHERE (x IS NOT NULL);
+CREATE INDEX idx_seats_status ON public.seats USING btree (status);
+CREATE INDEX idx_seats_table_number ON public.seats USING btree (layout_id, table_number) WHERE (table_number IS NOT NULL);
+CREATE INDEX idx_seats_ticket_type_id ON public.seats USING btree (ticket_type_id) WHERE (ticket_type_id IS NOT NULL);
+CREATE INDEX idx_service_tiers_service_id ON public.service_tiers USING btree (service_id);
+CREATE INDEX idx_service_tiers_service_position ON public.service_tiers USING btree (service_id, "position");
+CREATE INDEX idx_services_organizer_active ON public.services USING btree (organizer_id, is_active) WHERE (is_active = true);
+CREATE INDEX idx_services_organizer_id ON public.services USING btree (organizer_id);
+CREATE INDEX idx_services_organizer_position ON public.services USING btree (organizer_id, "position");
+CREATE INDEX idx_studio_chat_conversations_owner ON public.studio_chat_conversations USING btree (user_id, created_at DESC);
+CREATE INDEX idx_studio_chat_messages_conversation ON public.studio_chat_messages USING btree (conversation_id, seq);
+CREATE INDEX idx_system_events_created_at ON public.system_events USING btree (created_at DESC);
+CREATE INDEX idx_system_events_dedupe_created ON public.system_events USING btree (dedupe_key, created_at DESC);
+CREATE INDEX idx_system_events_kind ON public.system_events USING btree (kind, created_at DESC);
+CREATE INDEX idx_system_events_tenant_id ON public.system_events USING btree (tenant_id, created_at DESC) WHERE (tenant_id IS NOT NULL);
+CREATE INDEX idx_tenant_websites_metadata_category ON public.tenant_websites USING gin (metadata);
+CREATE INDEX idx_tenant_websites_slug ON public.tenant_websites USING btree (slug);
+CREATE INDEX idx_tenant_websites_status ON public.tenant_websites USING btree (status);
+CREATE INDEX idx_tenant_websites_tenant_id ON public.tenant_websites USING btree (tenant_id);
+CREATE INDEX idx_ticket_checkins_delegating_user ON public.ticket_checkins USING btree (delegating_user_id) WHERE (delegating_user_id IS NOT
+CREATE INDEX idx_ticket_checkins_entrance_id ON public.ticket_checkins USING btree (entrance_id) WHERE (entrance_id IS NOT NULL);
+CREATE INDEX idx_ticket_checkins_event_id ON public.ticket_checkins USING btree (event_id);
+CREATE INDEX idx_ticket_checkins_offline_scan_id ON public.ticket_checkins USING btree (offline_scan_id) WHERE (offline_scan_id IS NOT NULL)
+CREATE INDEX idx_ticket_checkins_offline_scanned_at ON public.ticket_checkins USING btree (offline_scanned_at) WHERE (offline_scanned_at IS 
+CREATE INDEX idx_ticket_checkins_order_id ON public.ticket_checkins USING btree (ticket_order_id);
+CREATE INDEX idx_ticket_checkins_scanned_by ON public.ticket_checkins USING btree (scanned_by_user_id);
+CREATE INDEX idx_ticket_instances_event_id ON public.ticket_instances USING btree (event_id);
+CREATE INDEX idx_ticket_instances_invitation_id ON public.ticket_instances USING btree (invitation_id);
+CREATE INDEX idx_ticket_instances_order_id ON public.ticket_instances USING btree (order_id);
+CREATE INDEX idx_ticket_instances_qr_code ON public.ticket_instances USING btree (qr_code);
+CREATE INDEX idx_ticket_instances_source ON public.ticket_instances USING btree (source);
+CREATE INDEX idx_ticket_instances_status ON public.ticket_instances USING btree (status);
+CREATE INDEX idx_ticket_orders_event_id ON public.ticket_orders USING btree (event_id);
+CREATE INDEX idx_ticket_orders_qr_code ON public.ticket_orders USING btree (qr_code);
+CREATE INDEX idx_ticket_orders_stripe_session ON public.ticket_orders USING btree (stripe_session_id);
+CREATE INDEX idx_user_identity_verifications_user_id ON public.user_identity_verifications USING btree (user_id, created_at DESC);
+CREATE INDEX idx_venue_layouts_event_id ON public.venue_layouts USING btree (event_id);
+CREATE INDEX idx_website_navigation_website_id ON public.website_navigation USING btree (website_id);
+CREATE INDEX idx_website_page_drafts_page_id ON public.website_page_drafts USING btree (page_id);
+CREATE INDEX idx_website_pages_sort ON public.website_pages USING btree (website_id, sort_order, created_at);
+CREATE INDEX idx_website_pages_website_id ON public.website_pages USING btree (website_id);
+CREATE POLICY "Active authenticated users can create businesses" ON public.businesses FOR INSERT WITH CHECK (((auth.uid() = owner_id) AND (s
+CREATE POLICY "Active authenticated users can create products" ON public.products FOR INSERT WITH CHECK (((auth.uid() = owner_id) AND (statu
+CREATE POLICY "Active invitation templates are readable by everyone" ON public.invitation_templates FOR SELECT USING (((is_active = true) OR
+CREATE POLICY "Active users can create their own articles" ON public.articles FOR INSERT WITH CHECK (((auth.uid() = owner_id) AND (status = 
+CREATE POLICY "Admins and owners can read all knowledge" ON public.knowledge_documents FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins and scoped readers can read approved chunks" ON public.knowledge_chunks FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY "Admins and scoped readers can read knowledge versions" ON public.knowledge_document_versions FOR SELECT USING ((EXISTS ( SELE
+CREATE POLICY "Admins and tenant members can read agent reports" ON public.agent_reports FOR SELECT USING ((((tenant_id IS NULL) AND (EXISTS
+CREATE POLICY "Admins and tenant members can read agent runs" ON public.agent_runs FOR SELECT USING ((((tenant_id IS NULL) AND (EXISTS ( SEL
+CREATE POLICY "Admins and tenant members can read agent steps" ON public.agent_steps FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins and tenant members can read agent tasks" ON public.agent_tasks FOR SELECT USING ((((tenant_id IS NULL) AND (EXISTS ( S
+CREATE POLICY "Admins and tenant members can read approvals" ON public.approvals FOR SELECT USING ((((tenant_id IS NULL) AND (EXISTS ( SELEC
+CREATE POLICY "Admins can delete ai_content_calendar" ON public.ai_content_calendar FOR DELETE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can delete ai_content_items" ON public.ai_content_items FOR DELETE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can delete ai_knowledge_docs" ON public.ai_knowledge_docs FOR DELETE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can delete any business" ON public.businesses FOR DELETE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can delete any product" ON public.products FOR DELETE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can delete invitation templates" ON public.invitation_templates FOR DELETE USING (((auth.uid() IS NOT NULL) AND (( SEL
+CREATE POLICY "Admins can insert ai_content_calendar" ON public.ai_content_calendar FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can insert ai_content_items" ON public.ai_content_items FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can insert ai_conversations" ON public.ai_conversations FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can insert ai_guard_rejections" ON public.ai_guard_rejections FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can insert ai_knowledge_docs" ON public.ai_knowledge_docs FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can insert ai_messages" ON public.ai_messages FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can insert invitation templates" ON public.invitation_templates FOR INSERT WITH CHECK (((auth.uid() IS NOT NULL) AND (
+CREATE POLICY "Admins can manage all articles" ON public.articles USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can manage all promotions" ON public.homepage_promotions TO authenticated USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can manage all reviews" ON public.reviews USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can manage comments" ON public.comments USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read agent tools" ON public.agent_tools FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read agent versions" ON public.agent_versions FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read agents" ON public.agents FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read all articles" ON public.articles FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read all events" ON public.events FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read all fundraisers" ON public.fundraisers FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read all organizers" ON public.organizers FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read donations" ON public.donations FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read qa runs" ON public.qa_runs FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read qa test results" ON public.qa_test_results FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY "Admins can read tool definitions" ON public.tool_definitions FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can update ai_content_calendar" ON public.ai_content_calendar FOR UPDATE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can update ai_content_items" ON public.ai_content_items FOR UPDATE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can update ai_conversations" ON public.ai_conversations FOR UPDATE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can update ai_knowledge_docs" ON public.ai_knowledge_docs FOR UPDATE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can update any business" ON public.businesses FOR UPDATE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can update any product order" ON public.product_orders FOR UPDATE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can update any product" ON public.products FOR UPDATE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can update invitation templates" ON public.invitation_templates FOR UPDATE USING (((auth.uid() IS NOT NULL) AND (( SEL
+CREATE POLICY "Admins can update reconciliation failures" ON public.payment_reconciliation_failures FOR UPDATE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view ai_content_calendar" ON public.ai_content_calendar FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view ai_content_items" ON public.ai_content_items FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view ai_conversations" ON public.ai_conversations FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view ai_knowledge_docs" ON public.ai_knowledge_docs FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view ai_messages" ON public.ai_messages FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view all businesses" ON public.businesses FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view all product assets" ON public.product_assets FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view all product downloads" ON public.product_downloads FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view all product orders" ON public.product_orders FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view all products" ON public.products FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view all promotions" ON public.homepage_promotions FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view all verification submissions" ON public.organizer_verification_submissions FOR SELECT USING ((EXISTS ( SELECT
+CREATE POLICY "Admins can view audit logs" ON public.organizer_visibility_audit FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view moderation events" ON public.business_moderation_events FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view organizer status audit logs" ON public.organizer_status_audit FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view profile verification audit logs" ON public.profile_verification_audit FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Admins can view reconciliation failures" ON public.payment_reconciliation_failures FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Allow public read access to homepage_categories" ON public.homepage_categories FOR SELECT USING (true);
+CREATE POLICY "Approved comments are publicly readable" ON public.comments FOR SELECT USING (((status)::text = 'approved'::text));
+CREATE POLICY "Approved public events are readable" ON public.events FOR SELECT USING (((status = 'approved'::text) AND (visibility = 'publi
+CREATE POLICY "Article owners can delete draft articles" ON public.articles FOR DELETE USING (((status = 'draft'::text) AND (EXISTS ( SELECT
+CREATE POLICY "Article owners can read their articles" ON public.articles FOR SELECT USING (((auth.uid() = owner_id) OR (EXISTS ( SELECT 1
+CREATE POLICY "Article owners can update their articles" ON public.articles FOR UPDATE USING (((auth.uid() = owner_id) OR (EXISTS ( SELECT 1
+CREATE POLICY "Authenticated can read approved knowledge" ON public.knowledge_documents FOR SELECT USING (((status = 'approved'::text) AND (
+CREATE POLICY "Authenticated can read incidents" ON public.incidents FOR SELECT USING ((((tenant_id IS NULL) AND (EXISTS ( SELECT 1
+CREATE POLICY "Authenticated can read system events" ON public.system_events FOR SELECT USING ((((tenant_id IS NULL) AND (EXISTS ( SELECT 1
+CREATE POLICY "Authenticated owners can create fundraisers pending review" ON public.fundraisers FOR INSERT WITH CHECK (((auth.uid() IS NOT 
+CREATE POLICY "Authenticated users can create beneficiaries" ON public.beneficiaries FOR INSERT TO authenticated WITH CHECK ((user_id IS NUL
+CREATE POLICY "Authenticated users can create promotions pending review" ON public.homepage_promotions FOR INSERT TO authenticated WITH CHEC
+CREATE POLICY "Authenticated users can create reviews" ON public.reviews FOR INSERT WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Authenticated users can create their own pending order" ON public.product_orders FOR INSERT WITH CHECK (((auth.uid() = buyer_
+CREATE POLICY "Authenticated users can read settings" ON public.platform_settings FOR SELECT USING ((auth.role() = 'authenticated'::text));
+CREATE POLICY "Beneficiaries can read their own campaign" ON public.fundraisers FOR SELECT USING (((beneficiary_id IS NOT NULL) AND (EXISTS 
+CREATE POLICY "Beneficiaries can update their own profile" ON public.beneficiaries FOR UPDATE TO authenticated USING (((user_id IS NOT NULL)
+CREATE POLICY "Buyers can view their own product orders" ON public.product_orders FOR SELECT USING ((auth.uid() = buyer_id));
+CREATE POLICY "Creators can delete own promotions" ON public.homepage_promotions FOR DELETE TO authenticated USING (((auth.uid() = created_b
+CREATE POLICY "Creators can update own promotions" ON public.homepage_promotions FOR UPDATE TO authenticated USING ((auth.uid() = created_by
+CREATE POLICY "Creators can view own promotions" ON public.homepage_promotions FOR SELECT USING ((auth.uid() = created_by));
+CREATE POLICY "Downloaders can view their own download log" ON public.product_downloads FOR SELECT USING ((auth.uid() = buyer_id));
+CREATE POLICY "Event owners and admins can create tickets" ON public.tickets FOR INSERT WITH CHECK (((auth.uid() IS NOT NULL) AND (event_id 
+CREATE POLICY "Event owners and admins can delete tickets" ON public.tickets FOR DELETE USING (((EXISTS ( SELECT 1
+CREATE POLICY "Event owners and admins can update tickets" ON public.tickets FOR UPDATE USING (((EXISTS ( SELECT 1
+CREATE POLICY "Media of published fundraisers is readable" ON public.fundraiser_media FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Members and admins can read memory history" ON public.agent_memory_versions FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Members and admins can read scoped memory" ON public.agent_memory FOR SELECT USING (((tenant_id IS NULL) OR (tenant_id IN ( S
+CREATE POLICY "Organizer can create draft submission" ON public.organizer_verification_submissions FOR INSERT WITH CHECK (((status = 'draft'
+CREATE POLICY "Organizer can manage their fundraiser media" ON public.fundraiser_media USING (((fundraiser_id IN ( SELECT fundraisers.id
+CREATE POLICY "Organizer can manage their updates" ON public.fundraiser_updates USING (((organizer_id IN ( SELECT organizers.id
+CREATE POLICY "Organizer can update own pending submissions" ON public.organizer_verification_submissions FOR UPDATE USING (((status = ANY (
+CREATE POLICY "Organizer can view own submissions" ON public.organizer_verification_submissions FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Organizer owners manage entity memberships" ON public.entity_members USING (((EXISTS ( SELECT 1
+CREATE POLICY "Organizers access their import rows" ON public.guest_import_rows USING ((EXISTS ( SELECT 1
+CREATE POLICY "Organizers and event managers can manage event invitations" ON public.event_invitations USING (((EXISTS ( SELECT 1
+CREATE POLICY "Organizers can read their own followers" ON public.organizer_follows FOR SELECT USING ((organizer_id IN ( SELECT organizers.i
+CREATE POLICY "Organizers can view audit logs for their events" ON public.event_audit_logs FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY "Organizers manage event team invitations" ON public.event_team_invitations USING (((EXISTS ( SELECT 1
+CREATE POLICY "Organizers manage event team members" ON public.event_team_members USING (((EXISTS ( SELECT 1
+CREATE POLICY "Organizers manage their import batches" ON public.guest_import_batches USING (((EXISTS ( SELECT 1
+CREATE POLICY "Owner admins can delete studio chat messages" ON public.studio_chat_messages FOR DELETE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Owner admins can delete studio chats" ON public.studio_chat_conversations FOR DELETE USING (((EXISTS ( SELECT 1
+CREATE POLICY "Owner admins can insert studio chat messages" ON public.studio_chat_messages FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+CREATE POLICY "Owner admins can insert studio chats" ON public.studio_chat_conversations FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
+CREATE POLICY "Owner admins can update studio chat messages" ON public.studio_chat_messages FOR UPDATE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Owner admins can update studio chats" ON public.studio_chat_conversations FOR UPDATE USING (((EXISTS ( SELECT 1
+CREATE POLICY "Owner admins can view studio chat messages" ON public.studio_chat_messages FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Owner admins can view studio chats" ON public.studio_chat_conversations FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY "Owners and admins can create events" ON public.events FOR INSERT WITH CHECK ((((auth.uid() IS NOT NULL) AND (auth.uid() = use
+CREATE POLICY "Owners and admins can read article audios" ON public.article_audios FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Owners and admins can view payouts" ON public.payouts FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY "Owners and admins can view their ledger entries" ON public.recipient_ledger_entries FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY "Owners and admins can view their recipient record" ON public.recipients FOR SELECT USING (((auth.uid() = user_id) OR (EXISTS 
+CREATE POLICY "Owners can delete archived products" ON public.products FOR DELETE USING (((auth.uid() = owner_id) AND (status = 'archived'::
+CREATE POLICY "Owners can delete inactive businesses" ON public.businesses FOR DELETE USING (((auth.uid() = owner_id) AND (status <> 'active
+CREATE POLICY "Owners can manage branches" ON public.business_branches TO authenticated USING ((EXISTS ( SELECT 1
+CREATE POLICY "Owners can read their own events" ON public.events FOR SELECT USING ((auth.uid() = user_id));
+CREATE POLICY "Owners can read their own fundraiser media" ON public.fundraiser_media FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Owners can read their own fundraiser updates" ON public.fundraiser_updates FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Owners can read their own fundraisers" ON public.fundraisers FOR SELECT USING (((auth.uid() = user_id) OR (EXISTS ( SELECT 1
+CREATE POLICY "Owners can update their own businesses" ON public.businesses FOR UPDATE USING ((auth.uid() = owner_id)) WITH CHECK ((auth.uid
+CREATE POLICY "Owners can update their own products" ON public.products FOR UPDATE USING ((auth.uid() = owner_id)) WITH CHECK (((auth.uid() 
+CREATE POLICY "Owners can view their own businesses" ON public.businesses FOR SELECT USING ((auth.uid() = owner_id));
+CREATE POLICY "Owners can view their own products" ON public.products FOR SELECT USING ((auth.uid() = owner_id));
+CREATE POLICY "Product owners can view assets on their products" ON public.product_assets FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Product owners can view downloads on their products" ON public.product_downloads FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Product owners can view orders on their products" ON public.product_orders FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Public article audios are readable" ON public.article_audios FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Public beneficiaries are readable" ON public.beneficiaries FOR SELECT USING ((((visibility = 'public'::text) AND (deleted_at 
+CREATE POLICY "Public can view active menu items" ON public.menu_items FOR SELECT USING (((is_active = true) AND (EXISTS ( SELECT 1
+CREATE POLICY "Public can view active menu sections" ON public.menu_sections FOR SELECT USING ((is_active = true));
+CREATE POLICY "Public can view active non-flagged businesses" ON public.businesses FOR SELECT USING (((status = 'active'::text) AND (is_flag
+CREATE POLICY "Public can view active products" ON public.products FOR SELECT USING (((status = 'active'::text) OR (status = 'out_of_stock':
+CREATE POLICY "Public can view active promotions" ON public.homepage_promotions FOR SELECT USING (((status = 'active'::text) AND (is_visible
+CREATE POLICY "Public can view active service tiers" ON public.service_tiers FOR SELECT USING (((is_active = true) AND (EXISTS ( SELECT 1
+CREATE POLICY "Public can view active services" ON public.services FOR SELECT USING ((is_active = true));
+CREATE POLICY "Public can view branches" ON public.business_branches FOR SELECT USING (true);
+CREATE POLICY "Public can view published tenant websites" ON public.tenant_websites FOR SELECT USING (((status = 'published'::text) OR publi
+CREATE POLICY "Public can view published website pages" ON public.website_pages FOR SELECT USING ((((status = 'published'::text) AND (EXISTS
+CREATE POLICY "Public can view website navigation for published websites" ON public.website_navigation FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Public organizers are readable" ON public.organizers FOR SELECT USING ((((visibility = 'public'::text) AND (deleted_at IS NUL
+CREATE POLICY "Public read homepage_sponsors" ON public.homepage_sponsors FOR SELECT USING (true);
+CREATE POLICY "Public read homepage_testimonials" ON public.homepage_testimonials FOR SELECT USING (true);
+CREATE POLICY "Published fundraisers are public" ON public.fundraisers FOR SELECT USING ((status = 'published'::text));
+CREATE POLICY "Published public articles are readable" ON public.articles FOR SELECT USING (((status = 'published'::text) AND (visibility = 
+CREATE POLICY "Reviews are publicly readable" ON public.reviews FOR SELECT USING (((is_approved = true) OR (auth.uid() = user_id) OR (EXISTS
+CREATE POLICY "Tenant editors can insert menu items" ON public.menu_items FOR INSERT WITH CHECK ((public.is_entity_member(organizer_id, ARRA
+CREATE POLICY "Tenant editors can insert menu sections" ON public.menu_sections FOR INSERT WITH CHECK ((public.is_entity_member(organizer_id
+CREATE POLICY "Tenant editors can insert service tiers" ON public.service_tiers FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+CREATE POLICY "Tenant editors can insert services" ON public.services FOR INSERT WITH CHECK ((public.is_entity_member(organizer_id, ARRAY['o
+CREATE POLICY "Tenant editors can update menu items" ON public.menu_items FOR UPDATE USING ((public.is_entity_member(organizer_id, ARRAY['ow
+CREATE POLICY "Tenant editors can update menu sections" ON public.menu_sections FOR UPDATE USING ((public.is_entity_member(organizer_id, ARR
+CREATE POLICY "Tenant editors can update service tiers" ON public.service_tiers FOR UPDATE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Tenant editors can update services" ON public.services FOR UPDATE USING ((public.is_entity_member(organizer_id, ARRAY['owner'
+CREATE POLICY "Tenant managers and editors can insert tenant websites" ON public.tenant_websites FOR INSERT TO authenticated WITH CHECK ((pu
+CREATE POLICY "Tenant managers and editors can insert website navigation" ON public.website_navigation FOR INSERT TO authenticated WITH CHEC
+CREATE POLICY "Tenant managers and editors can insert website pages" ON public.website_pages FOR INSERT TO authenticated WITH CHECK ((EXISTS
+CREATE POLICY "Tenant managers and editors can update tenant websites" ON public.tenant_websites FOR UPDATE TO authenticated USING ((public.
+CREATE POLICY "Tenant managers and editors can update website navigation" ON public.website_navigation FOR UPDATE TO authenticated USING ((E
+CREATE POLICY "Tenant managers and editors can update website pages" ON public.website_pages FOR UPDATE TO authenticated USING ((EXISTS ( SE
+CREATE POLICY "Tenant managers can delete menu items" ON public.menu_items FOR DELETE USING ((public.is_entity_member(organizer_id, ARRAY['o
+CREATE POLICY "Tenant managers can delete menu sections" ON public.menu_sections FOR DELETE USING ((public.is_entity_member(organizer_id, AR
+CREATE POLICY "Tenant managers can delete service tiers" ON public.service_tiers FOR DELETE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Tenant managers can delete services" ON public.services FOR DELETE USING ((public.is_entity_member(organizer_id, ARRAY['owner
+CREATE POLICY "Tenant managers can delete tenant websites" ON public.tenant_websites FOR DELETE TO authenticated USING ((public.is_entity_me
+CREATE POLICY "Tenant managers can delete website navigation" ON public.website_navigation FOR DELETE TO authenticated USING ((EXISTS ( SELE
+CREATE POLICY "Tenant managers can delete website pages" ON public.website_pages FOR DELETE TO authenticated USING ((EXISTS ( SELECT 1
+CREATE POLICY "Tenant managers can manage ai provider configs" ON public.ai_provider_configs USING ((public.is_entity_member(tenant_id, ARRA
+CREATE POLICY "Tenant managers can manage channel assets" ON public.channel_assets USING ((public.is_entity_member(tenant_id, ARRAY['owner':
+CREATE POLICY "Tenant managers can manage connected accounts" ON public.connected_accounts USING ((public.is_entity_member(tenant_id, ARRAY[
+CREATE POLICY "Tenant managers can manage notification preferences" ON public.notification_preferences USING ((public.is_entity_member(tenan
+CREATE POLICY "Tenant members and admins can read guard rejections" ON public.ai_guard_rejections FOR SELECT USING ((((tenant_id IS NULL) AN
+CREATE POLICY "Tenant members and admins can read incident events" ON public.incident_events FOR SELECT USING ((incident_id IN ( SELECT inci
+CREATE POLICY "Tenant members can read ai provider configs" ON public.ai_provider_configs FOR SELECT USING ((public.is_entity_member(tenant_
+CREATE POLICY "Tenant members can read channel assets" ON public.channel_assets FOR SELECT USING ((public.is_entity_member(tenant_id, ARRAY[
+CREATE POLICY "Tenant members can read connected accounts" ON public.connected_accounts FOR SELECT USING ((public.is_entity_member(tenant_id
+CREATE POLICY "Tenant members can read conversations" ON public.conversations FOR SELECT USING ((public.is_entity_member(tenant_id, ARRAY['o
+CREATE POLICY "Tenant members can read customer identities" ON public.customer_identities FOR SELECT USING ((public.is_entity_member(tenant_
+CREATE POLICY "Tenant members can read messages" ON public.messages FOR SELECT USING ((public.is_entity_member(tenant_id, ARRAY['owner'::tex
+CREATE POLICY "Tenant members can read notification preferences" ON public.notification_preferences FOR SELECT USING ((public.is_entity_memb
+CREATE POLICY "Tenant members can read own tool invocations" ON public.ai_tool_invocations FOR SELECT USING ((((tenant_id IS NOT NULL) AND p
+CREATE POLICY "Tenant members can view menu items" ON public.menu_items FOR SELECT USING ((public.is_entity_member(organizer_id, ARRAY['owne
+CREATE POLICY "Tenant members can view menu sections" ON public.menu_sections FOR SELECT USING ((public.is_entity_member(organizer_id, ARRAY
+CREATE POLICY "Tenant members can view service tiers" ON public.service_tiers FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Tenant members can view services" ON public.services FOR SELECT USING ((public.is_entity_member(organizer_id, ARRAY['owner'::
+CREATE POLICY "Tenant members can view tenant websites" ON public.tenant_websites FOR SELECT TO authenticated USING ((public.is_entity_membe
+CREATE POLICY "Tenant members can view website navigation" ON public.website_navigation FOR SELECT TO authenticated USING ((EXISTS ( SELECT 
+CREATE POLICY "Tenant members can view website pages" ON public.website_pages FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+CREATE POLICY "Tenant team members can delete website page drafts" ON public.website_page_drafts FOR DELETE TO authenticated USING ((EXISTS 
+CREATE POLICY "Tenant team members can insert website page drafts" ON public.website_page_drafts FOR INSERT TO authenticated WITH CHECK ((EX
+CREATE POLICY "Tenant team members can update website page drafts" ON public.website_page_drafts FOR UPDATE TO authenticated USING ((EXISTS 
+CREATE POLICY "Tenant team members can view website page drafts" ON public.website_page_drafts FOR SELECT TO authenticated USING ((EXISTS ( 
+CREATE POLICY "Tenant writers can append messages" ON public.messages FOR INSERT WITH CHECK ((public.is_entity_member(tenant_id, ARRAY['owne
+CREATE POLICY "Tenant writers can manage conversations" ON public.conversations USING ((public.is_entity_member(tenant_id, ARRAY['owner'::te
+CREATE POLICY "Tenant writers can manage customer identities" ON public.customer_identities USING ((public.is_entity_member(tenant_id, ARRAY
+CREATE POLICY "Tickets of visible events are readable" ON public.tickets FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY "Updates of published fundraisers are readable" ON public.fundraiser_updates FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "User can insert own draft identity submission" ON public.user_identity_verifications FOR INSERT WITH CHECK (((auth.uid() = us
+CREATE POLICY "User can update own draft identity submission" ON public.user_identity_verifications FOR UPDATE USING (((auth.uid() = user_id
+CREATE POLICY "User can view own identity submissions" ON public.user_identity_verifications FOR SELECT USING (((auth.uid() = user_id) OR (E
+CREATE POLICY "Users can create follows" ON public.follows FOR INSERT WITH CHECK ((auth.uid() = follower_id));
+CREATE POLICY "Users can create media for their fundraisers" ON public.fundraiser_media FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
+CREATE POLICY "Users can create their Eventbrite sources" ON public.eventbrite_sources FOR INSERT WITH CHECK ((((auth.uid() = user_id) AND (
+CREATE POLICY "Users can create their GoFundMe sources" ON public.gofundme_sources FOR INSERT WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can delete follows" ON public.follows FOR DELETE USING ((auth.uid() = follower_id));
+CREATE POLICY "Users can delete media for their fundraisers" ON public.fundraiser_media FOR DELETE USING (((EXISTS ( SELECT 1
+CREATE POLICY "Users can delete own events" ON public.events FOR DELETE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can delete own fundraisers" ON public.fundraisers FOR DELETE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can delete their Eventbrite sources" ON public.eventbrite_sources FOR DELETE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can delete their GoFundMe sources" ON public.gofundme_sources FOR DELETE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can delete their organizer fundraisers" ON public.fundraisers FOR DELETE USING (((auth.uid() = user_id) OR (EXISTS ( SE
+CREATE POLICY "Users can delete their own reviews" ON public.reviews FOR DELETE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can follow organizers" ON public.organizer_follows FOR INSERT WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can insert own organizer" ON public.organizers FOR INSERT WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can mark their own notifications read" ON public.notifications FOR UPDATE USING ((auth.uid() = user_id)) WITH CHECK ((a
+CREATE POLICY "Users can read own follow edges" ON public.follows FOR SELECT USING (((auth.uid() = follower_id) OR (auth.uid() = following_i
+CREATE POLICY "Users can read their Eventbrite sources" ON public.eventbrite_sources FOR SELECT USING ((auth.uid() = user_id));
+CREATE POLICY "Users can read their GoFundMe sources" ON public.gofundme_sources FOR SELECT USING ((auth.uid() = user_id));
+CREATE POLICY "Users can read their own follows" ON public.organizer_follows FOR SELECT USING ((auth.uid() = user_id));
+CREATE POLICY "Users can read their own notifications" ON public.notifications FOR SELECT USING ((auth.uid() = user_id));
+CREATE POLICY "Users can read their own profile" ON public.profiles FOR SELECT USING ((auth.uid() = id));
+CREATE POLICY "Users can unfollow organizers" ON public.organizer_follows FOR DELETE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can update fundraisers for their organizer profiles" ON public.fundraisers FOR UPDATE USING (((auth.uid() = user_id) OR
+CREATE POLICY "Users can update media for their fundraisers" ON public.fundraiser_media FOR UPDATE USING (((EXISTS ( SELECT 1
+CREATE POLICY "Users can update own events" ON public.events FOR UPDATE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can update own fundraisers" ON public.fundraisers FOR UPDATE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can update own organizer" ON public.organizers FOR UPDATE USING ((auth.uid() = user_id));
+CREATE POLICY "Users can update their Eventbrite sources" ON public.eventbrite_sources FOR UPDATE USING (((auth.uid() = user_id) OR public.i
+CREATE POLICY "Users can update their GoFundMe sources" ON public.gofundme_sources FOR UPDATE USING ((auth.uid() = user_id)) WITH CHECK ((au
+CREATE POLICY "Users can update their own account settings" ON public.profiles FOR UPDATE USING ((auth.uid() = id)) WITH CHECK ((auth.uid() 
+CREATE POLICY "Users can update their own reviews" ON public.reviews FOR UPDATE USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = use
+CREATE POLICY "Users can view checkins for their events" ON public.ticket_checkins FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY "Users can view conflicts for their events" ON public.offline_scan_conflicts FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY "Users can view relevant entity memberships" ON public.entity_members FOR SELECT USING (((auth.uid() = user_id) OR (EXISTS ( S
+CREATE POLICY "Users can view relevant event team invitations" ON public.event_team_invitations FOR SELECT USING (((EXISTS ( SELECT 1
+CREATE POLICY "Users can view relevant event team members" ON public.event_team_members FOR SELECT USING (((user_id = auth.uid()) OR (EXISTS
+CREATE POLICY "Users can view relevant ticket instances" ON public.ticket_instances FOR SELECT USING ((((order_id IS NOT NULL) AND (EXISTS (
+CREATE POLICY "Users can view their own donations" ON public.donations FOR SELECT USING ((auth.uid() = user_id));
+CREATE TABLE public.agent_memory (
+CREATE TABLE public.agent_memory_versions (
+CREATE TABLE public.agent_reports (
+CREATE TABLE public.agent_runs (
+CREATE TABLE public.agent_steps (
+CREATE TABLE public.agent_tasks (
+CREATE TABLE public.agent_tools (
+CREATE TABLE public.agent_versions (
+CREATE TABLE public.agents (
+CREATE TABLE public.ai_content_calendar (
+CREATE TABLE public.ai_content_items (
+CREATE TABLE public.ai_conversations (
+CREATE TABLE public.ai_guard_rejections (
+CREATE TABLE public.ai_knowledge_docs (
+CREATE TABLE public.ai_messages (
+CREATE TABLE public.ai_provider_configs (
+CREATE TABLE public.ai_tool_invocations (
+CREATE TABLE public.approvals (
+CREATE TABLE public.article_audios (
+CREATE TABLE public.articles (
+CREATE TABLE public.beneficiaries (
+CREATE TABLE public.business_branches (
+CREATE TABLE public.business_moderation_events (
+CREATE TABLE public.businesses (
+CREATE TABLE public.channel_assets (
+CREATE TABLE public.comment_likes (
+CREATE TABLE public.comments (
+CREATE TABLE public.connected_accounts (
+CREATE TABLE public.conversations (
+CREATE TABLE public.customer_identities (
+CREATE TABLE public.donations (
+CREATE TABLE public.entity_members (
+CREATE TABLE public.event_audit_logs (
+CREATE TABLE public.event_invitations (
+CREATE TABLE public.event_team_invitations (
+CREATE TABLE public.event_team_members (
+CREATE TABLE public.eventbrite_sources (
+CREATE TABLE public.events (
+CREATE TABLE public.follows (
+CREATE TABLE public.fundraiser_media (
+CREATE TABLE public.fundraiser_updates (
+CREATE TABLE public.fundraisers (
+CREATE TABLE public.gofundme_sources (
+CREATE TABLE public.guest_import_batches (
+CREATE TABLE public.guest_import_rows (
+CREATE TABLE public.homepage_categories (
+CREATE TABLE public.homepage_promotions (
+CREATE TABLE public.homepage_sponsors (
+CREATE TABLE public.homepage_testimonials (
+CREATE TABLE public.incident_events (
+CREATE TABLE public.incidents (
+CREATE TABLE public.invitation_templates (
+CREATE TABLE public.knowledge_chunks (
+CREATE TABLE public.knowledge_document_versions (
+CREATE TABLE public.knowledge_documents (
+CREATE TABLE public.menu_items (
+CREATE TABLE public.menu_sections (
+CREATE TABLE public.messages (
+CREATE TABLE public.notification_preferences (
+CREATE TABLE public.notifications (
+CREATE TABLE public.offline_scan_conflicts (
+CREATE TABLE public.organizer_follows (
+CREATE TABLE public.organizer_status_audit (
+CREATE TABLE public.organizer_verification_submissions (
+CREATE TABLE public.organizer_visibility_audit (
+CREATE TABLE public.organizers (
+CREATE TABLE public.payment_reconciliation_failures (
+CREATE TABLE public.payouts (
+CREATE TABLE public.platform_settings (
+CREATE TABLE public.product_assets (
+CREATE TABLE public.product_downloads (
+CREATE TABLE public.product_orders (
+CREATE TABLE public.products (
+CREATE TABLE public.profile_verification_audit (
+CREATE TABLE public.profiles (
+CREATE TABLE public.qa_runs (
+CREATE TABLE public.qa_test_results (
+CREATE TABLE public.rate_limits (
+CREATE TABLE public.recipient_ledger_entries (
+CREATE TABLE public.recipients (
+CREATE TABLE public.reviews (
+CREATE TABLE public.seats (
+CREATE TABLE public.service_tiers (
+CREATE TABLE public.services (
+CREATE TABLE public.studio_chat_conversations (
+CREATE TABLE public.studio_chat_messages (
+CREATE TABLE public.system_events (
+CREATE TABLE public.tenant_websites (
+CREATE TABLE public.ticket_checkins (
+CREATE TABLE public.ticket_instances (
+CREATE TABLE public.ticket_orders (
+CREATE TABLE public.tickets (
+CREATE TABLE public.tool_definitions (
+CREATE TABLE public.user_identity_verifications (
+CREATE TABLE public.venue_layouts (
+CREATE TABLE public.website_navigation (
+CREATE TABLE public.website_page_drafts (
+CREATE TABLE public.website_pages (
+CREATE TRIGGER ai_content_items_updated_at BEFORE UPDATE ON public.ai_content_items FOR EACH ROW EXECUTE FUNCTION public.ai_set_updated_at()
+CREATE TRIGGER ai_conversations_updated_at BEFORE UPDATE ON public.ai_conversations FOR EACH ROW EXECUTE FUNCTION public.ai_set_updated_at()
+CREATE TRIGGER ai_knowledge_docs_updated_at BEFORE UPDATE ON public.ai_knowledge_docs FOR EACH ROW EXECUTE FUNCTION public.ai_set_updated_at
+CREATE TRIGGER prevent_profile_role_status_self_update BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.prevent_profile
+CREATE TRIGGER trg_agent_memory_updated_at BEFORE UPDATE ON public.agent_memory FOR EACH ROW EXECUTE FUNCTION public.update_agent_memory_upd
+CREATE TRIGGER trg_agent_memory_versions_no_mutation BEFORE DELETE OR UPDATE ON public.agent_memory_versions FOR EACH ROW EXECUTE FUNCTION p
+CREATE TRIGGER trg_agent_tasks_updated_at BEFORE UPDATE ON public.agent_tasks FOR EACH ROW EXECUTE FUNCTION public.update_agent_tasks_update
+CREATE TRIGGER trg_agents_updated_at BEFORE UPDATE ON public.agents FOR EACH ROW EXECUTE FUNCTION public.update_agents_updated_at();
+CREATE TRIGGER trg_ai_provider_configs_updated_at BEFORE UPDATE ON public.ai_provider_configs FOR EACH ROW EXECUTE FUNCTION public.update_ai
+CREATE TRIGGER trg_articles_updated_at BEFORE INSERT OR UPDATE ON public.articles FOR EACH ROW EXECUTE FUNCTION public.update_articles_updat
+CREATE TRIGGER trg_business_branches_updated_at BEFORE UPDATE ON public.business_branches FOR EACH ROW EXECUTE FUNCTION public.update_busine
+CREATE TRIGGER trg_businesses_cleanup_organizer AFTER DELETE ON public.businesses FOR EACH ROW EXECUTE FUNCTION public.cleanup_business_orga
+CREATE TRIGGER trg_businesses_link_organizer BEFORE INSERT ON public.businesses FOR EACH ROW EXECUTE FUNCTION public.trg_link_business_organ
+CREATE TRIGGER trg_businesses_lock_organizer_id BEFORE UPDATE ON public.businesses FOR EACH ROW EXECUTE FUNCTION public.prevent_business_org
+CREATE TRIGGER trg_businesses_updated_at BEFORE INSERT OR UPDATE ON public.businesses FOR EACH ROW EXECUTE FUNCTION public.update_businesses
+CREATE TRIGGER trg_cascade_ticket_order_status AFTER UPDATE OF status ON public.ticket_orders FOR EACH ROW EXECUTE FUNCTION public.cascade_t
+CREATE TRIGGER trg_channel_assets_tenant_match BEFORE INSERT OR UPDATE OF connected_account_id, tenant_id ON public.channel_assets FOR EACH 
+CREATE TRIGGER trg_channel_assets_updated_at BEFORE UPDATE ON public.channel_assets FOR EACH ROW EXECUTE FUNCTION public.update_channel_asse
+CREATE TRIGGER trg_connected_accounts_lock_tenant BEFORE UPDATE OF tenant_id ON public.connected_accounts FOR EACH ROW EXECUTE FUNCTION publ
+CREATE TRIGGER trg_connected_accounts_updated_at BEFORE UPDATE ON public.connected_accounts FOR EACH ROW EXECUTE FUNCTION public.update_conn
+CREATE TRIGGER trg_conversations_link_tenant BEFORE INSERT OR UPDATE OF channel_asset_id, customer_identity_id, tenant_id ON public.conversa
+CREATE TRIGGER trg_conversations_updated_at BEFORE UPDATE ON public.conversations FOR EACH ROW EXECUTE FUNCTION public.update_conversations_
+CREATE TRIGGER trg_customer_identities_updated_at BEFORE UPDATE ON public.customer_identities FOR EACH ROW EXECUTE FUNCTION public.update_cu
+CREATE TRIGGER trg_enforce_article_status_transition BEFORE UPDATE ON public.articles FOR EACH ROW EXECUTE FUNCTION public.enforce_article_s
+CREATE TRIGGER trg_enforce_business_status_transition BEFORE UPDATE ON public.businesses FOR EACH ROW EXECUTE FUNCTION public.enforce_busine
+CREATE TRIGGER trg_enforce_fundraiser_status_transition BEFORE UPDATE ON public.fundraisers FOR EACH ROW EXECUTE FUNCTION public.enforce_fun
+CREATE TRIGGER trg_enforce_homepage_promotion_moderation BEFORE UPDATE ON public.homepage_promotions FOR EACH ROW EXECUTE FUNCTION public.en
+CREATE TRIGGER trg_enforce_homepage_promotion_status_transition BEFORE UPDATE ON public.homepage_promotions FOR EACH ROW EXECUTE FUNCTION pu
+CREATE TRIGGER trg_enforce_organizer_capability_columns BEFORE UPDATE ON public.organizers FOR EACH ROW EXECUTE FUNCTION public.enforce_orga
+CREATE TRIGGER trg_enforce_product_status_transition BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.enforce_product_s
+CREATE TRIGGER trg_enforce_website_page_publishing_guard BEFORE INSERT OR UPDATE ON public.website_pages FOR EACH ROW EXECUTE FUNCTION publi
+CREATE TRIGGER trg_guard_business_owner_update BEFORE UPDATE ON public.businesses FOR EACH ROW EXECUTE FUNCTION public.guard_business_owner_
+CREATE TRIGGER trg_homepage_promotions_updated_at BEFORE UPDATE ON public.homepage_promotions FOR EACH ROW EXECUTE FUNCTION public.update_ho
+CREATE TRIGGER trg_incidents_updated_at BEFORE UPDATE ON public.incidents FOR EACH ROW EXECUTE FUNCTION public.update_incidents_updated_at()
+CREATE TRIGGER trg_knowledge_chunks_tsv BEFORE INSERT OR UPDATE OF content ON public.knowledge_chunks FOR EACH ROW EXECUTE FUNCTION public.k
+CREATE TRIGGER trg_knowledge_documents_updated_at BEFORE UPDATE ON public.knowledge_documents FOR EACH ROW EXECUTE FUNCTION public.update_kn
+CREATE TRIGGER trg_menu_items_organizer_match BEFORE INSERT OR UPDATE ON public.menu_items FOR EACH ROW EXECUTE FUNCTION public.check_menu_i
+CREATE TRIGGER trg_menu_items_updated_at BEFORE UPDATE ON public.menu_items FOR EACH ROW EXECUTE FUNCTION public.update_menu_items_updated_a
+CREATE TRIGGER trg_menu_sections_updated_at BEFORE UPDATE ON public.menu_sections FOR EACH ROW EXECUTE FUNCTION public.update_menu_sections_
+CREATE TRIGGER trg_messages_tenant_match BEFORE INSERT OR UPDATE OF conversation_id, tenant_id ON public.messages FOR EACH ROW EXECUTE FUNCT
+CREATE TRIGGER trg_messages_touch_conversation AFTER INSERT ON public.messages FOR EACH ROW EXECUTE FUNCTION public.touch_conversation_last_
+CREATE TRIGGER trg_notification_preferences_updated_at BEFORE UPDATE ON public.notification_preferences FOR EACH ROW EXECUTE FUNCTION public
+CREATE TRIGGER trg_organizers_lock_auto_created BEFORE UPDATE ON public.organizers FOR EACH ROW EXECUTE FUNCTION public.prevent_is_business_
+CREATE TRIGGER trg_organizers_seed_owner_member AFTER INSERT ON public.organizers FOR EACH ROW EXECUTE FUNCTION public.trg_seed_organizer_ow
+CREATE TRIGGER trg_payouts_status_transition BEFORE UPDATE ON public.payouts FOR EACH ROW EXECUTE FUNCTION public.enforce_payout_status_tran
+CREATE TRIGGER trg_prevent_event_audit_logs_mod BEFORE DELETE OR UPDATE ON public.event_audit_logs FOR EACH ROW EXECUTE FUNCTION public.prev
+CREATE TRIGGER trg_prevent_submission_self_approval BEFORE UPDATE ON public.organizer_verification_submissions FOR EACH ROW EXECUTE FUNCTION
+CREATE TRIGGER trg_prevent_user_identity_self_approval BEFORE UPDATE ON public.user_identity_verifications FOR EACH ROW EXECUTE FUNCTION pub
+CREATE TRIGGER trg_product_orders_updated_at BEFORE INSERT OR UPDATE ON public.product_orders FOR EACH ROW EXECUTE FUNCTION public.update_pr
+CREATE TRIGGER trg_products_updated_at BEFORE INSERT OR UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.update_products_updat
+CREATE TRIGGER trg_recipient_ledger_entries_no_delete BEFORE DELETE ON public.recipient_ledger_entries FOR EACH ROW EXECUTE FUNCTION public.
+CREATE TRIGGER trg_recipient_ledger_entries_no_update BEFORE UPDATE ON public.recipient_ledger_entries FOR EACH ROW EXECUTE FUNCTION public.
+CREATE TRIGGER trg_service_tiers_updated_at BEFORE UPDATE ON public.service_tiers FOR EACH ROW EXECUTE FUNCTION public.update_service_tiers_
+CREATE TRIGGER trg_services_updated_at BEFORE UPDATE ON public.services FOR EACH ROW EXECUTE FUNCTION public.update_services_updated_at();
+CREATE TRIGGER trg_set_beneficiary_slug BEFORE INSERT ON public.beneficiaries FOR EACH ROW EXECUTE FUNCTION public.set_beneficiary_slug();
+CREATE TRIGGER trg_set_website_page_draft_metadata BEFORE INSERT OR UPDATE ON public.website_page_drafts FOR EACH ROW EXECUTE FUNCTION publi
+CREATE TRIGGER trg_tenant_websites_updated_at BEFORE UPDATE ON public.tenant_websites FOR EACH ROW EXECUTE FUNCTION public.update_tenant_web
+CREATE TRIGGER trg_tool_definitions_updated_at BEFORE UPDATE ON public.tool_definitions FOR EACH ROW EXECUTE FUNCTION public.update_tool_def
+CREATE TRIGGER trg_update_fundraiser_raised AFTER INSERT OR UPDATE ON public.donations FOR EACH ROW EXECUTE FUNCTION public.update_fundraise
+CREATE TRIGGER trg_update_rating_aggregates AFTER INSERT OR DELETE OR UPDATE OF rating, is_approved, event_id, fundraiser_id, organizer_id O
+CREATE TRIGGER trg_website_navigation_updated_at BEFORE UPDATE ON public.website_navigation FOR EACH ROW EXECUTE FUNCTION public.update_webs
+CREATE TRIGGER trg_website_pages_updated_at BEFORE UPDATE ON public.website_pages FOR EACH ROW EXECUTE FUNCTION public.update_website_pages_
+CREATE UNIQUE INDEX comment_likes_comment_cookie_uq ON public.comment_likes USING btree (comment_id, cookie_id);
+CREATE UNIQUE INDEX comment_likes_comment_ip_uq ON public.comment_likes USING btree (comment_id, ip_address) WHERE (ip_address IS NOT NULL);
+CREATE UNIQUE INDEX comments_payment_intent_id_key ON public.comments USING btree (payment_intent_id);
+CREATE UNIQUE INDEX events_eventbrite_event_id_key ON public.events USING btree (eventbrite_event_id) WHERE (eventbrite_event_id IS NOT NULL
+CREATE UNIQUE INDEX fundraisers_gofundme_source_id_key ON public.fundraisers USING btree (gofundme_source_id) WHERE (gofundme_source_id IS N
+CREATE UNIQUE INDEX idx_beneficiaries_slug ON public.beneficiaries USING btree (slug);
+CREATE UNIQUE INDEX idx_businesses_organizer_id ON public.businesses USING btree (organizer_id) WHERE (organizer_id IS NOT NULL);
+CREATE UNIQUE INDEX idx_event_team_members_active_user ON public.event_team_members USING btree (event_id, user_id) WHERE ((status = 'active
+CREATE UNIQUE INDEX idx_organizers_slug ON public.organizers USING btree (slug) WHERE (slug IS NOT NULL);
+CREATE UNIQUE INDEX idx_payouts_client_idempotency_key ON public.payouts USING btree (client_idempotency_key) WHERE (client_idempotency_key 
+CREATE UNIQUE INDEX idx_payouts_external_payout_id ON public.payouts USING btree (destination_type, external_payout_id) WHERE (external_payo
+CREATE UNIQUE INDEX idx_product_assets_path_unique ON public.product_assets USING btree (file_path);
+CREATE UNIQUE INDEX idx_recipient_ledger_entries_refund_dedup ON public.recipient_ledger_entries USING btree (source_type, source_id, entry_
+CREATE UNIQUE INDEX idx_recipient_ledger_entries_source_dedup ON public.recipient_ledger_entries USING btree (source_type, source_id, entry_
+CREATE UNIQUE INDEX idx_recipients_business_id ON public.recipients USING btree (business_id) WHERE (business_id IS NOT NULL);
+CREATE UNIQUE INDEX idx_recipients_organizer_id ON public.recipients USING btree (organizer_id) WHERE (organizer_id IS NOT NULL);
+CREATE UNIQUE INDEX idx_recipients_user_id ON public.recipients USING btree (user_id) WHERE (user_id IS NOT NULL);
+CREATE UNIQUE INDEX idx_seats_unique_assigned_invitation ON public.seats USING btree (assigned_invitation_id) WHERE (assigned_invitation_id 
+CREATE UNIQUE INDEX idx_ticket_orders_payment_intent ON public.ticket_orders USING btree (stripe_payment_intent_id);
+CREATE UNIQUE INDEX idx_unique_user_event_review ON public.reviews USING btree (user_id, event_id) WHERE (event_id IS NOT NULL);
+CREATE UNIQUE INDEX idx_unique_user_fundraiser_review ON public.reviews USING btree (user_id, fundraiser_id) WHERE (fundraiser_id IS NOT NUL
+CREATE UNIQUE INDEX idx_unique_user_organizer_review ON public.reviews USING btree (user_id, organizer_id) WHERE (organizer_id IS NOT NULL);
+CREATE UNIQUE INDEX idx_unique_user_platform_review ON public.reviews USING btree (user_id) WHERE (review_type = 'platform'::text);
+CREATE UNIQUE INDEX uq_agent_memory_agent_platform ON public.agent_memory USING btree (agent_id, fact_key) WHERE ((agent_id IS NOT NULL) AND
+CREATE UNIQUE INDEX uq_agent_memory_platform ON public.agent_memory USING btree (fact_key) WHERE ((agent_id IS NULL) AND (tenant_id IS NULL)
+CREATE UNIQUE INDEX uq_agent_memory_tenant ON public.agent_memory USING btree (tenant_id, fact_key) WHERE ((agent_id IS NULL) AND (tenant_id
+CREATE UNIQUE INDEX uq_agent_runs_task_attempt ON public.agent_runs USING btree (task_id, attempt_no);
+CREATE UNIQUE INDEX uq_ai_provider_configs_tenant_provider ON public.ai_provider_configs USING btree (tenant_id, provider);
+CREATE UNIQUE INDEX uq_business_branches_one_main_per_business ON public.business_branches USING btree (business_id) WHERE (is_main = true);
+CREATE UNIQUE INDEX uq_channel_assets_channel_provider_asset ON public.channel_assets USING btree (channel, provider_asset_id) WHERE (provid
+CREATE UNIQUE INDEX uq_connected_accounts_tenant_provider_account ON public.connected_accounts USING btree (tenant_id, provider, provider_ac
+CREATE UNIQUE INDEX uq_customer_identities_tenant_channel_external ON public.customer_identities USING btree (tenant_id, channel, external_c
+CREATE UNIQUE INDEX uq_incidents_open_dedupe ON public.incidents USING btree (dedupe_key) WHERE (status = ANY (ARRAY['open'::text, 'investig
+CREATE UNIQUE INDEX uq_messages_external_message_id ON public.messages USING btree (external_message_id) WHERE (external_message_id IS NOT N
+CREATE UNIQUE INDEX uq_notification_preferences_tenant_channel_event ON public.notification_preferences USING btree (tenant_id, channel, eve
+CREATE UNIQUE INDEX uq_website_pages_single_home ON public.website_pages USING btree (website_id) WHERE (is_home = true);
+CREATE VIEW public.organizer_follower_counts AS
+CREATE VIEW public.public_donation_activity AS
+CREATE VIEW public.public_profiles AS

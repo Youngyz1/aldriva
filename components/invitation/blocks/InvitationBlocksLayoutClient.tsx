@@ -1,5 +1,7 @@
 "use client";
 
+import { lazy, Suspense, useEffect } from "react";
+
 import type { InvitationPageData } from "@/types/invitation-template";
 import { invitationDetailsPresentationForTemplate, type InvitationBlocksLayout } from "@/lib/invitation-template-schema";
 import { compilePageBlocksLayoutTheme } from "@/lib/invitation-page-layout";
@@ -8,18 +10,30 @@ import { PREVIEW_MESSAGE_SOURCE } from "@/lib/invitation-preview-channel";
 import { renderInvitationBlock } from "@/components/invitation/blocks/InvitationBlockRegistry";
 import { InvitationScrollReveal } from "@/components/invitation/animation/InvitationScrollReveal";
 import { InvitationPageCanvas } from "@/components/invitation/blocks/InvitationPageCanvas";
-import { renderCustomInvitationPage } from "@/components/invitation/templates/InvitationPageComponentRegistry";
-import { getInvitationTemplateDefinition } from "@/lib/invitation-template-registry";
+import { getInvitationTemplateDefinition, resolveInvitationTemplateId } from "@/lib/invitation-template-registry";
+
+const MinimalismDarkBluePageTemplate = lazy(() =>
+  import("@/components/invitation/templates/minimalism-dark-blue/MinimalismDarkBluePageTemplate").then((module) => ({
+    default: module.MinimalismDarkBluePageTemplate,
+  }))
+);
+
+const BurgundyGoldPageTemplate = lazy(() =>
+  import("@/components/invitation/templates/burgundy-gold/BurgundyGoldPageTemplate").then((module) => ({
+    default: module.BurgundyGoldPageTemplate,
+  }))
+);
 
 export function InvitationBlocksLayoutClient({
   layout,
   data,
-  templateId = "gala-editorial",
+  templateId = "",
   onAction,
   shared = false,
   mode = "preview",
   isEditMode = false,
   wrapperClassName,
+  locale,
 }: {
   layout: InvitationBlocksLayout;
   data: InvitationPageData;
@@ -29,9 +43,16 @@ export function InvitationBlocksLayoutClient({
   shared?: boolean;
   mode?: "preview" | "live" | "shared";
   isEditMode?: boolean;
+  locale?: string;
 }) {
-  const definition = getInvitationTemplateDefinition(templateId);
-  const detailsPresentation = invitationDetailsPresentationForTemplate(templateId);
+  useEffect(() => {
+    if (locale) {
+      document.documentElement.lang = locale;
+    }
+  }, [locale]);
+  const resolvedTemplateId = resolveInvitationTemplateId(templateId);
+  const definition = getInvitationTemplateDefinition(resolvedTemplateId);
+  const detailsPresentation = invitationDetailsPresentationForTemplate(resolvedTemplateId);
   const galleryPresentation = definition?.galleryPresentation ?? "editorial";
   const supportedEffects = new Set<string>(definition?.supportedEffects ?? []);
   const compiledLayout = compilePageBlocksLayoutTheme({
@@ -51,9 +72,9 @@ export function InvitationBlocksLayoutClient({
   const renderedBlocks = compiledLayout.layout_blocks.map((block) => {
     if (block.type === "interactive_envelope" || block.type === "romantic_envelope_gate") return null;
     const content = renderInvitationBlock({
-      block, data, layout: compiledLayout, templateId, onAction, shared,
+      block, data, layout: compiledLayout, templateId: resolvedTemplateId, onAction, shared,
       romanticEnvelope: usesEnvelopeGate,
-      botanicalReverie: templateId === "botanical-reverie",
+      botanicalReverie: resolvedTemplateId === "botanical-reverie",
       detailsPresentation,
       galleryPresentation,
     });
@@ -75,7 +96,7 @@ export function InvitationBlocksLayoutClient({
           );
         }}
       >
-        {templateId === "evergreen-envelope" && block.type === "music"
+        {block.type === "action_portal" || (resolvedTemplateId === "evergreen-envelope" && block.type === "music")
           ? content
           : <InvitationScrollReveal enabled={scrollRevealEnabled} durationMs={scrollRevealDurationMs}>{content}</InvitationScrollReveal>}
       </div>
@@ -92,15 +113,39 @@ export function InvitationBlocksLayoutClient({
       {renderedBlocks}
     </InvitationPageCanvas>
   );
-  if (definition?.pageRenderer.kind === "custom") {
-    return renderCustomInvitationPage(definition.pageRenderer.componentId, {
-      layout: compiledLayout,
-      data,
-      children: renderedBlocks,
-      mode,
-      isEditMode,
-      wrapperClassName,
-    }, standardPage);
+  if (resolvedTemplateId === "minimalism-dark-blue") {
+    return (
+      <Suspense fallback={standardPage}>
+        <MinimalismDarkBluePageTemplate
+          layout={compiledLayout}
+          data={data}
+          mode={mode}
+          isEditMode={isEditMode}
+          wrapperClassName={wrapperClassName}
+          hasAction={Boolean(onAction)}
+          onAction={onAction}
+        >
+          {renderedBlocks}
+        </MinimalismDarkBluePageTemplate>
+      </Suspense>
+    );
+  }
+  if (resolvedTemplateId === "burgundy-gold") {
+    return (
+      <Suspense fallback={standardPage}>
+        <BurgundyGoldPageTemplate
+          layout={compiledLayout}
+          data={data}
+          mode={mode}
+          isEditMode={isEditMode}
+          wrapperClassName={wrapperClassName}
+          hasAction={Boolean(onAction)}
+          onAction={onAction}
+        >
+          {renderedBlocks}
+        </BurgundyGoldPageTemplate>
+      </Suspense>
+    );
   }
 
   return standardPage;

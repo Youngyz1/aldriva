@@ -6,7 +6,14 @@ import { calculatePreviewFitScale } from "@/lib/invitation-preview-channel";
 const PREVIEW_WIDTH = 1440;
 const PREVIEW_HEIGHT = 900;
 
-export function V2TemplateGalleryPreviewFrame({ children }: { children: ReactNode }) {
+export function V2TemplateGalleryPreviewFrame({
+  children,
+  className = "h-64",
+}: {
+  children: ReactNode;
+  /** Outer wrapper sizing — defaults to the dashboard gallery's fixed height. */
+  className?: string;
+}) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
@@ -33,7 +40,7 @@ export function V2TemplateGalleryPreviewFrame({ children }: { children: ReactNod
   });
 
   return (
-    <div ref={frameRef} className="relative h-64 overflow-hidden border-b border-zinc-100 bg-zinc-50">
+    <div ref={frameRef} className={`relative overflow-hidden border-b border-zinc-100 bg-zinc-50 ${className}`}>
       <div
         inert
         aria-hidden="true"

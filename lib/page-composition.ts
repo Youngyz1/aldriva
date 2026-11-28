@@ -94,6 +94,30 @@ export const PAGE_THEME_PRESETS = {
       button: "rounded-xl bg-white text-slate-950 hover:bg-slate-100",
     },
   },
+  minimalismDarkBlue: {
+    classes: {
+      page: "min-h-screen bg-[#efece5] text-[#00214a]",
+      section: "bg-transparent",
+      heading: "font-serif text-[#00214a]",
+      body: "font-serif text-[#00214a]/80",
+      card: "rounded-lg border border-[#00214a]/15 bg-white shadow-xs",
+      button: "rounded-full bg-[#00214a] text-white hover:bg-[#001534]",
+    },
+  },
+  burgundyGold: {
+    classes: {
+      page: "min-h-screen bg-[#4a1020] text-[#f3d38a]",
+      section: "bg-transparent",
+      // The action_portal block (RSVP) renders inside burgundy-gold's own
+      // white dialog card (BurgundyGoldSections.tsx), not on the dark page
+      // background — heading/body must stay dark here or they're unreadable
+      // on white, unlike every other preset's card.
+      heading: "font-serif text-[#3a0d18]",
+      body: "font-serif text-[#5a1830]/90",
+      card: "rounded-lg border border-[#d4af37]/30 bg-[#5a1830] shadow-xs",
+      button: "rounded-full bg-[#d4af37] text-[#4a1020] hover:bg-[#c29b2b]",
+    },
+  },
 } as const;
 
 export type PageThemePreset = keyof typeof PAGE_THEME_PRESETS;
@@ -106,57 +130,8 @@ export type PageThemeClasses = Partial<{
   button: string;
 }>;
 
-/** Curated presentation themes retained for legacy invitation template IDs. */
-export const LEGACY_INVITATION_THEME_CLASSES: Record<string, PageThemeClasses> = {
-  "wedding-romantic": {
-    page: "min-h-screen bg-stone-50 text-stone-900 font-serif selection:bg-amber-100",
-    section: "bg-transparent",
-    body: "font-serif text-stone-700",
-    card: "bg-white/80 backdrop-blur-sm border border-stone-200/60 shadow-xl rounded-2xl p-8 max-w-2xl mx-auto my-6",
-    heading: "font-serif text-amber-900 italic text-center font-normal tracking-wide",
-    button: "bg-amber-800 text-white rounded-full font-serif px-8 py-3 tracking-wider hover:bg-amber-900 transition-all",
-  },
-  "birthday-bold": {
-    page: "min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-fuchsia-500",
-    section: "bg-transparent",
-    body: "font-sans text-slate-200",
-    card: "bg-slate-800/80 border border-slate-700 shadow-2xl rounded-3xl p-6",
-    heading: "font-black uppercase tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 to-violet-400",
-    button: "bg-gradient-to-r from-fuchsia-500 to-violet-500 text-white rounded-xl font-bold px-6 py-3 shadow-lg",
-  },
-  "gala-editorial": {
-    page: "min-h-screen bg-zinc-950 text-zinc-100 font-mono tracking-tight",
-    section: "bg-transparent",
-    body: "font-mono text-zinc-300",
-    card: "bg-zinc-900 border border-zinc-800 rounded-none p-8",
-    heading: "font-mono font-bold uppercase tracking-widest text-zinc-300",
-    button: "border border-zinc-400 hover:bg-white hover:text-black transition-colors rounded-none px-6 py-3 text-xs uppercase",
-  },
-  "black-tie": {
-    page: "min-h-screen bg-zinc-950 text-zinc-100 font-mono tracking-tight",
-    section: "bg-transparent",
-    body: "font-mono text-zinc-300",
-    card: "bg-zinc-900 border border-zinc-800 rounded-none p-8",
-    heading: "font-mono font-bold uppercase tracking-widest text-zinc-300",
-    button: "border border-zinc-400 hover:bg-white hover:text-black transition-colors rounded-none px-6 py-3 text-xs uppercase",
-  },
-  "romantic-envelope": {
-    page: "min-h-screen bg-[#E6DEC9] text-stone-900 font-serif",
-    section: "bg-transparent",
-    body: "font-serif text-stone-700",
-    card: "bg-white/80 border border-stone-200/50 shadow-md p-5 rounded-xl",
-    heading: "font-serif text-amber-900 italic text-center font-normal tracking-wide",
-    button: "bg-amber-800 text-white rounded-full font-serif px-8 py-3 tracking-wider hover:bg-amber-900 transition-all",
-  },
-  "botanical-reverie": {
-    page: "min-h-screen bg-[#f4efe4] text-[#263b31]",
-    section: "bg-transparent",
-    body: "font-sans text-[#53665a]",
-    card: "border border-[#d8d0bb] bg-[#fffdf7] shadow-lg",
-    heading: "font-serif text-[#263b31]",
-    button: "bg-[#365746] text-[#fffdf7] hover:bg-[#284434]",
-  },
-};
+/** Legacy invitation template theme classes — empty; no templates ship with the platform. */
+export const LEGACY_INVITATION_THEME_CLASSES: Record<string, PageThemeClasses> = {};
 
 export interface PageGlobalTheme {
   classes: PageThemeClasses;
@@ -330,13 +305,5 @@ export function themeForInvitationTemplate(templateId: string): PageGlobalTheme 
       ...PAGE_THEME_PRESETS[preset].classes,
       ...LEGACY_INVITATION_THEME_CLASSES[templateId],
     },
-    ...(templateId === "botanical-reverie" ? {
-      palette_id: "palette-botanical",
-      font_pack_id: "font-serif-editorial",
-    } : {}),
-    ...(templateId === "evergreen-envelope" ? {
-      palette_id: "palette-evergreen",
-      font_pack_id: "font-script",
-    } : {}),
   };
 }

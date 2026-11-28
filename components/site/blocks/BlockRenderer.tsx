@@ -32,6 +32,8 @@ import { sanitizeUrl } from "@/lib/sanitize-url";
 import { resolveSiteHref } from "@/lib/site-paths";
 import { safeImageSrc } from "@/lib/image-url";
 import { CatalogCarousel } from "./CatalogCard";
+import { HeroImageCarousel, HeroOverlapImages } from "@/components/site/HeroImageCarousel";
+import { SocialIconRow } from "@/components/site/SocialIconRow";
 import {
   Block,
   HeroBlock,
@@ -53,19 +55,34 @@ import {
   isBlockVisible,
 } from "@/lib/website-blocks";
 import { getBackgroundStyle, getContainerClass, getHiddenOnMobileClass, getSpacingClass } from "@/lib/section-helpers";
-import { formatMoney as formatCurrency } from "@/lib/money";
+import { formatMoney as formatCurrency, isPriceEmpty } from "@/lib/money";
 import type { Locale } from "@/i18n/routing";
 import { normalizeCurrencyCode } from "@/lib/website-blocks";
 import { isOvernightWebsiteInterval } from "@/lib/website-hours";
+import { resolveTrustIcon } from "@/lib/trust-strip-icons";
+import { ServicesMarquee } from "./ServicesMarquee";
+import { ONLINE_PAYMENT_CURRENCIES } from "@/lib/storefront-features";
+import { buildClosedNoticeLabels } from "@/lib/storefront-closed-notice";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { readableOn } from "@/lib/readable-on";
 import type { TemplateSourceMapEntry } from "@/lib/website-template-resolver";
 import { StorefrontBrowse, type StorefrontOrderConfig } from "./StorefrontBrowse";
 import { ProductCarousel } from "./ProductCarousel";
+import { PromoCarousel } from "./PromoCarousel";
+import { OrdersList } from "./OrdersList";
+import { HomePopularCarousel } from "./HomePopularCarousel";
+import { CategoryTiles } from "./CategoryTiles";
 import { ReservationRequestForm, type StorefrontReservationConfig, type ReservationFormLabels } from "./ReservationForm";
+import { GeneralBookingForm, type StorefrontGeneralBookingConfig, type GeneralBookingFormLabels } from "../reservations/GeneralBookingForm";
+import type { StorefrontRentalConfig } from "./rental/types";
+import { BookingBarBlock } from "./rental/BookingBarBlock";
+import { FleetCardsBlock } from "./rental/FleetCardsBlock";
+import { FleetGridBlock } from "./rental/FleetGridBlock";
+import { BookingFormBlock } from "./rental/BookingFormBlock";
 import { hasBrowseableItems, type BrowseGroup } from "@/lib/storefront-browse";
 import { getStoreProductStockState } from "@/lib/store-product-detail";
+import type { ValidatedPublicService } from "@/lib/services-public-data";
 import {
   resolveEventsEmbed,
   resolveProductsEmbed,
@@ -79,6 +96,7 @@ import {
   ResolvedFundraiserItem,
   ResolvedServiceItem,
   ResolvedMenuSection,
+  ResolvedMenuItem,
 } from "@/lib/website-embeds";
 import {
   IconCalendar as Calendar,
@@ -190,6 +208,7 @@ export function HeroBlockRenderer({
   accentColor,
   tableFlame = false,
   savannah = false,
+  showcase = false,
   businessName,
 }: {
   block: HeroBlock;
@@ -200,6 +219,7 @@ export function HeroBlockRenderer({
   accentColor?: string;
   tableFlame?: boolean;
   savannah?: boolean;
+  showcase?: boolean;
   businessName?: string;
 }) {
   const safeBgImage = block.backgroundImage ? safeImageSrc(block.backgroundImage) || "" : "";
@@ -210,6 +230,87 @@ export function HeroBlockRenderer({
     ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.secondaryCtaHref) : block.secondaryCtaHref)
     : "";
   const safeVideoUrl = block.videoUrl ? sanitizeUrl(block.videoUrl) : "";
+
+  if (block.variant === "full-bleed" && showcase) {
+    const accent = accentColor || "var(--ps-accent)";
+    const heroImages = (block.images ?? [])
+      .slice(0, 6)
+      .flatMap((image) => {
+        const src = safeImageSrc(image.src);
+        return src ? [{ src, alt: image.alt || block.heading || "" }] : [];
+      });
+    const hasPhotos = heroImages.length > 0;
+    const isOverlapLayout = heroImages.length === 2 || heroImages.length === 3;
+
+    const textColumn = (
+      <div className={`flex flex-col justify-center ${hasPhotos ? "md:w-1/2" : "mx-auto max-w-[640px] items-center text-center"}`}>
+        {block.tagline ? (
+          <p {...elementPathProps(editMode, sourceMap, "tagline")} className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--tf-ink)]">
+            {block.tagline}
+          </p>
+        ) : null}
+        {block.heading ? (
+          <h1 {...elementPathProps(editMode, sourceMap, "heading")} className="showcase-hero-headline text-[var(--tf-ink)]">
+            {block.heading}
+          </h1>
+        ) : null}
+        {block.subheading ? (
+          <p {...elementPathProps(editMode, sourceMap, "subheading")} className="mt-2 text-sm leading-relaxed text-[var(--tf-muted)] md:text-base">
+            {block.subheading}
+          </p>
+        ) : null}
+        {(block.ctaLabel && safeCtaHref) || (block.secondaryCtaLabel && safeSecCtaHref) ? (
+          <div className={`mt-5 flex flex-wrap items-center gap-3 ${hasPhotos ? "" : "justify-center"}`}>
+            {block.ctaLabel && safeCtaHref ? (
+              <a
+                {...elementPathProps(editMode, sourceMap, "ctaLabel")}
+                href={safeCtaHref}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-ink)]"
+                style={{ backgroundColor: accent, color: "var(--tf-on-accent)" }}
+              >
+                {block.ctaLabel}
+              </a>
+            ) : null}
+
+            {block.secondaryCtaLabel && safeSecCtaHref ? (
+              <a
+                {...elementPathProps(editMode, sourceMap, "secondaryCtaLabel")}
+                href={safeSecCtaHref}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-full border-[1.5px] border-[var(--tf-ink)] px-5 py-2 text-sm font-semibold text-[var(--tf-ink)] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-ink)]"
+              >
+                {block.secondaryCtaLabel}
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    );
+
+    return (
+      <section className="relative w-full overflow-hidden bg-[var(--tf-soft)] md:h-[min(80vh,640px)]" data-site-motion-hero>
+        {hasPhotos ? (
+          <div
+            className="absolute inset-y-0 right-0 hidden w-1/2 items-center justify-center bg-[var(--tf-soft)] md:flex"
+            {...elementPathProps(editMode, sourceMap, "images[0].src")}
+          >
+            {isOverlapLayout ? <HeroOverlapImages images={heroImages} /> : <HeroImageCarousel images={heroImages} />}
+          </div>
+        ) : null}
+
+        <div className="relative mx-auto flex w-full max-w-[1280px] flex-col gap-8 px-5 py-10 sm:px-6 md:h-full md:flex-row md:items-stretch md:py-0">
+          {textColumn}
+
+          {hasPhotos ? (
+            <div className="md:hidden">
+              <div className="flex items-center justify-center rounded-xl bg-[var(--tf-soft)] p-6">
+                <HeroImageCarousel images={heroImages} imageClassName="max-h-[420px] max-w-full rounded-xl object-contain shadow-lg" />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
 
   if (block.variant === "full-bleed") {
     const hasPhoto = Boolean(
@@ -556,6 +657,71 @@ function FeaturesBlockRenderer({
   const savannah = siteTemplateId === "restaurant-savannah";
   const items = block.items ?? [];
   if (savannah && items.length === 0) return null;
+
+  if (block.variant === "trust_strip") {
+    if (items.length === 0) return null;
+
+    if (siteTemplateId === "showcase") {
+      return (
+        <ServicesMarquee
+          heading={block.heading}
+          subheading={block.subheading}
+          sectionAlign={sectionAlign}
+          scrollingEnabled={block.scrollingEnabled !== false}
+          items={items.map((item, i) => ({
+            title: item.title,
+            description: item.description,
+            icon: item.icon,
+            titlePathProps: elementPathProps(editMode, sourceMap, "items[" + i + "].title"),
+            descriptionPathProps: elementPathProps(editMode, sourceMap, "items[" + i + "].description"),
+          }))}
+        />
+      );
+    }
+
+    return (
+      <section className="w-full overflow-hidden">
+        {block.heading ? (
+          <SectionHeading heading={block.heading} subheading={block.subheading} align={sectionAlign} />
+        ) : null}
+        <div
+          className="flex gap-[var(--ps-space-3)] overflow-x-auto snap-x snap-mandatory scrollbar-none pb-[var(--ps-space-1)] px-[var(--ps-space-4)] sm:px-[var(--ps-space-6)]"
+          role="list"
+        >
+          {items.map((item, i) => {
+            const IconComponent = resolveTrustIcon(item.icon, i);
+            return (
+              <div
+                key={i}
+                role="listitem"
+                className="flex-shrink-0 snap-start flex items-center gap-2.5 rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] px-3.5 py-2.5 text-[var(--tf-ink)]"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--tf-soft)] text-[var(--tf-accent)]">
+                  <IconComponent className="h-[18px] w-[18px]" />
+                </div>
+                <div className="min-w-0">
+                  <p
+                    {...elementPathProps(editMode, sourceMap, "items[" + i + "].title")}
+                    className="text-[13px] font-semibold text-[var(--tf-ink)] whitespace-nowrap"
+                  >
+                    {item.title}
+                  </p>
+                  {item.description ? (
+                    <p
+                      {...elementPathProps(editMode, sourceMap, "items[" + i + "].description")}
+                      className="text-[12px] text-[var(--tf-muted)] whitespace-nowrap"
+                    >
+                      {item.description}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
   const colClass =
     cols === 2
       ? "sm:grid-cols-2"
@@ -670,6 +836,12 @@ function AboutBlockRenderer({
   siteTemplateId,
   sectionAlign,
   businessName,
+  defaultAboutHeading,
+  eyebrow,
+  viewCatalogTemplate,
+  catalogName,
+  siteSlug,
+  scopeInternalLinks,
 }: {
   block: AboutBlock;
   editMode?: boolean;
@@ -678,8 +850,106 @@ function AboutBlockRenderer({
   sectionAlign?: "left" | "center";
   businessName?: string;
   businessLogo?: string;
+  defaultAboutHeading?: string;
+  eyebrow?: string;
+  viewCatalogTemplate?: string;
+  catalogName?: string;
+  siteSlug?: string;
+  scopeInternalLinks?: boolean;
 }) {
-  const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) : "";
+  const safeFounderImage = block.founderImage ? safeImageSrc(block.founderImage) || "" : "";
+
+  if (block.variant === "split" && siteTemplateId === "showcase") {
+    const hasImage = Boolean(safeFounderImage);
+    const heading = block.heading || businessName || "About";
+    const hasStory = Boolean(block.story);
+    // Hidden entirely when there is no text and no image — a bare heading
+    // (always available via the business-name fallback) isn't enough.
+    if (!hasStory && !hasImage) return null;
+    const catalogHref = catalogName && siteSlug
+      ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, "menu") : "/menu")
+      : null;
+    return (
+      <section id="about" className="w-full">
+        <div className="mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-8 md:grid-cols-2 md:gap-12">
+          {hasImage ? (
+            <div className="relative order-1 aspect-[4/3] w-full overflow-hidden rounded-xl bg-[var(--tf-soft)] md:order-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                {...elementPathProps(editMode, sourceMap, "founderImage")}
+                src={safeFounderImage}
+                alt={businessName || heading || ""}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : null}
+          <div className={`order-2 flex flex-col gap-3 md:order-1 ${hasImage ? "" : "mx-auto max-w-2xl text-center"}`}>
+            {eyebrow ? (
+              <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--tf-muted)]">{eyebrow}</p>
+            ) : null}
+            {heading ? (
+              <h2 {...elementPathProps(editMode, sourceMap, "heading")} className="showcase-about-headline">
+                {heading}
+              </h2>
+            ) : null}
+            {hasStory ? (
+              <p {...elementPathProps(editMode, sourceMap, "story")} className="text-base leading-relaxed text-[var(--tf-muted)]">
+                {block.story}
+              </p>
+            ) : null}
+            {catalogHref && catalogName ? (
+              <a
+                href={catalogHref}
+                className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--tf-accent)] hover:underline"
+              >
+                {(viewCatalogTemplate || "View {catalog}").replace("{catalog}", catalogName)}
+                <ArrowRight size={15} aria-hidden="true" />
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (block.variant === "split") {
+    const hasImage = Boolean(safeFounderImage);
+    const heading = block.heading || defaultAboutHeading || "About";
+    return (
+      <section id="about" className="w-full">
+        <div className={`grid grid-cols-1 items-center gap-8 ${hasImage ? "md:grid-cols-2 md:gap-12 max-w-6xl mx-auto" : "max-w-3xl mx-auto"}`}>
+          {hasImage ? (
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-[var(--tf-border)] bg-[var(--tf-soft)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                {...elementPathProps(editMode, sourceMap, "founderImage")}
+                src={safeFounderImage}
+                alt={businessName || block.heading || defaultAboutHeading || "About"}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-4">
+            <h2 {...elementPathProps(editMode, sourceMap, "heading")} className="font-[var(--v2-heading-font)] text-2xl sm:text-3xl font-bold tracking-tight text-[var(--tf-ink)]">
+              {heading}
+            </h2>
+            {block.subheading ? (
+              <p {...elementPathProps(editMode, sourceMap, "subheading")} className="text-base font-medium text-[var(--tf-accent)]">
+                {block.subheading}
+              </p>
+            ) : null}
+            {block.story ? (
+              <div {...elementPathProps(editMode, sourceMap, "story")} className="text-[15px] leading-relaxed text-[var(--tf-muted)] space-y-3">
+                <p>{block.story}</p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (siteTemplateId === "restaurant-table-flame") {
     return (
@@ -1097,6 +1367,10 @@ function ContactBlockRenderer({
   closedLabel,
   siteTemplateId,
   sectionAlign,
+  hoursAndLocationLabel,
+  openingHoursLabel,
+  locationLabel,
+  getDirectionsLabel,
 }: {
   block: ContactBlock;
   editMode?: boolean;
@@ -1105,6 +1379,10 @@ function ContactBlockRenderer({
   closedLabel: string;
   siteTemplateId?: string;
   sectionAlign?: "left" | "center";
+  hoursAndLocationLabel?: string;
+  openingHoursLabel?: string;
+  locationLabel?: string;
+  getDirectionsLabel?: string;
 }) {
   const safeEmail = block.email ? sanitizeUrl(`mailto:${block.email}`) : "";
   const safePhone = block.phone ? sanitizeUrl(`tel:${block.phone}`) : "";
@@ -1112,6 +1390,108 @@ function ContactBlockRenderer({
   const safeMapLink = mapSearch
     ? sanitizeUrl(`https://maps.google.com/?q=${encodeURIComponent(mapSearch)}`)
     : "";
+
+  if (block.variant === "card") {
+    const safeDirections = block.directionsUrl ? sanitizeUrl(block.directionsUrl) : safeMapLink;
+    const hasHours = Boolean(block.hoursTable?.length || block.hours);
+    const hasLocation = Boolean(block.address || block.phone || block.email || safeDirections || block.locations?.length || block.whatsapp);
+    if (!hasHours && !hasLocation) return null;
+
+    const normalizedRows = (() => {
+      if (!block.hoursTable || block.hoursTable.length === 0) return [];
+      if (block.hoursTable.length >= 7) return block.hoursTable.slice(0, 7);
+      const dayMap = new Map<string, { day: string; open?: string; close?: string; closed?: boolean }>();
+      for (const row of block.hoursTable) {
+        dayMap.set(row.day.toLowerCase().slice(0, 3), row);
+      }
+      const defaultWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      return defaultWeekdays.map((d) => {
+        const existing = dayMap.get(d.toLowerCase());
+        if (existing) return existing;
+        return { day: d, closed: true };
+      });
+    })();
+
+    return (
+      <section id="contact" className="w-full">
+        <SectionHeading heading={block.heading || hoursAndLocationLabel || "Hours & Location"} subheading={block.subheading} align={sectionAlign} />
+        <div className={`grid grid-cols-1 gap-6 md:gap-8 ${siteTemplateId === "showcase" ? "mx-auto max-w-[1280px]" : "max-w-5xl mx-auto"} ${hasHours && hasLocation ? "md:grid-cols-2" : ""}`}>
+          {hasHours ? (
+            <div className="rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] p-6 shadow-none text-[var(--tf-ink)]">
+              <h3 className="font-[var(--v2-heading-font)] text-lg font-semibold text-[var(--tf-ink)] mb-4">{openingHoursLabel || "Opening Hours"}</h3>
+              {normalizedRows.length > 0 ? (
+                <ul className="divide-y divide-[var(--tf-border)] text-sm">
+                  {normalizedRows.map((row, index) => {
+                    const isClosed = row.closed || (!row.open && !row.close);
+                    const timeText = isClosed ? closedLabel : [row.open, row.close].filter(Boolean).join(" – ") || closedLabel;
+                    const overnight = !isClosed && isOvernightWebsiteInterval(row.open, row.close);
+                    return (
+                      <li key={index} className="flex items-center justify-between gap-4 py-2.5">
+                        <span className="font-medium text-[var(--tf-ink)]">{row.day}</span>
+                        <span className="text-[var(--tf-muted)]">
+                          {timeText}
+                          {overnight ? ` (${nextDayLabel})` : ""}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-[14px] leading-relaxed text-[var(--tf-muted)]">{block.hours}</p>
+              )}
+            </div>
+          ) : null}
+
+          {hasLocation ? (
+            <div className="flex flex-col justify-between rounded-xl border border-[var(--tf-border)] bg-[var(--tf-card)] p-6 shadow-none text-[var(--tf-ink)] space-y-4">
+              <div>
+                <h3 className="font-[var(--v2-heading-font)] text-lg font-semibold text-[var(--tf-ink)] mb-3">{locationLabel || "Location"}</h3>
+                {block.address ? (
+                  <p {...elementPathProps(editMode, sourceMap, "address")} className="text-[14px] leading-relaxed text-[var(--tf-muted)] mb-3">
+                    {block.address}
+                  </p>
+                ) : null}
+                <div className="space-y-2 text-sm">
+                  {block.phone && safePhone ? (
+                    <div>
+                      <a {...elementPathProps(editMode, sourceMap, "phone")} className="inline-flex items-center gap-2 font-medium text-[var(--tf-ink)] hover:text-[var(--tf-accent)]" href={safePhone}>
+                        <Phone className="h-4 w-4 text-[var(--tf-accent)]" />
+                        {block.phone}
+                      </a>
+                    </div>
+                  ) : null}
+                  {block.email && safeEmail ? (
+                    <div>
+                      <a {...elementPathProps(editMode, sourceMap, "email")} className="inline-flex items-center gap-2 font-medium text-[var(--tf-ink)] hover:text-[var(--tf-accent)]" href={safeEmail}>
+                        <Mail className="h-4 w-4 text-[var(--tf-accent)]" />
+                        {block.email}
+                      </a>
+                    </div>
+                  ) : null}
+                </div>
+                {block.locations?.map((location, index) => (
+                  <div key={index} className="border-t border-[var(--tf-border)] pt-3 text-sm mt-3">
+                    {location.name ? <p className="font-semibold text-[var(--tf-ink)]">{location.name}</p> : null}
+                    {location.address ? <p className="text-[var(--tf-muted)]">{location.address}</p> : null}
+                    {location.hours ? <p className="text-[var(--tf-muted)]">{location.hours}</p> : null}
+                  </div>
+                ))}
+              </div>
+
+              {safeDirections ? (
+                <div className="pt-2">
+                  <a href={safeDirections} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-lg bg-[var(--tf-accent)] px-4 py-2.5 text-sm font-semibold text-[var(--tf-on-accent)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]">
+                    {getDirectionsLabel || "Get directions"}
+                  </a>
+                </div>
+              ) : null}
+              <SocialIconRow email={block.email} whatsapp={block.whatsapp} socials={block.socials} className="pt-2" />
+            </div>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
 
   if (siteTemplateId === "restaurant-table-flame") {
     const safeDirections = block.directionsUrl ? sanitizeUrl(block.directionsUrl) : safeMapLink;
@@ -1330,6 +1710,12 @@ function ContactBlockRenderer({
               </a>
             </div>
           ) : null}
+
+          {siteTemplateId === "showcase" ? (
+            <div className="sm:col-span-2">
+              <SocialIconRow email={block.email} whatsapp={block.whatsapp} socials={block.socials} />
+            </div>
+          ) : null}
         </div>
 
         {/* Map Preview or Direction Link */}
@@ -1544,6 +1930,7 @@ async function ProductsEmbedBlockRenderer({
   accentColor,
   siteSlug,
   currency,
+  siteTemplateId,
 }: {
   block: ProductsEmbedBlock;
   tenantId?: string;
@@ -1552,13 +1939,35 @@ async function ProductsEmbedBlockRenderer({
   accentColor?: string;
   siteSlug?: string;
   currency?: string;
+  siteTemplateId?: string;
 }) {
   const isStore = block.siteLocalProductDetails === true;
-  const products: Array<ResolvedProductItem | StorefrontProductPreviewItem> = tenantId
+  const rawProducts: Array<ResolvedProductItem | StorefrontProductPreviewItem> = tenantId
     ? await resolveProductsEmbed(block, tenantId, Boolean(isTeamMember) && !isStore)
     : block.previewProducts ?? [];
+
+  let products = rawProducts;
+  if (siteTemplateId === "showcase" && block.selectedProductIds && block.selectedProductIds.length > 0) {
+    const pickSet = new Set(block.selectedProductIds);
+    const picked = rawProducts.filter((p) => pickSet.has(p.id));
+    const remaining = rawProducts.filter((p) => !pickSet.has(p.id));
+    products = [...picked, ...remaining].slice(0, 6);
+  } else if (siteTemplateId === "showcase" && block.variant === "carousel") {
+    products = rawProducts.slice(0, 6);
+  }
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   const t = await getTranslations("Storefront");
+  let badgeSoldOut = locale === "fr" ? "Épuisé" : "Sold out";
+  let badgePopular = locale === "fr" ? "Populaire" : "Popular";
+  let badgeNew = locale === "fr" ? "Nouveau" : "New";
+  try {
+    const publicT = await getTranslations("PublicSite");
+    badgeSoldOut = publicT("badgeSoldOut");
+    badgePopular = publicT("badgePopular");
+    badgeNew = publicT("badgeNew");
+  } catch {
+    // Keep defaults
+  }
   // Shop prices live in Stripe (products store no local price): resolve once
   // per render, per-item failures omit the price but keep the card + link.
   const priceMap = tenantId ? await resolveShopPrices(
@@ -1574,6 +1983,8 @@ async function ProductsEmbedBlockRenderer({
     details: t("details"),
     close: t("close"),
     allergens: t("allergens"),
+    yourCart: t("storeCartTitle"),
+    viewCart: t("storeViewCart"),
   };
   const categoryOrder: string[] = [];
   const productsByCategory = new Map<string, ResolvedProductItem[]>();
@@ -1613,6 +2024,8 @@ async function ProductsEmbedBlockRenderer({
         numericPrice: price ? price.amount : undefined,
         createdAt: "created_at" in product ? (product.created_at ?? null) : null,
         isSoldOut: stockState === "sold_out",
+        isNew: "is_new" in product ? Boolean(product.is_new) : false,
+        isPopular: "is_popular" in product ? Boolean(product.is_popular) : false,
         tags: product.tags,
         badge:
           stockState === "sold_out"
@@ -1699,14 +2112,40 @@ async function ProductsEmbedBlockRenderer({
       unavailable: t("storeCartUnavailable"),
       locale: locale === "fr" ? "fr-FR" : "en-US",
     };
+    const isShowcaseHomeCarousel = siteTemplateId === "showcase" && block.variant === "carousel";
+    const catalogHref = siteSlug ? resolveSiteHref(siteSlug, "shop") : "/shop";
+
     return (
       <section className="w-full">
-        <SectionHeading heading={block.heading || t("storeShopHeading")} subheading={block.subheading} />
+        {isShowcaseHomeCarousel ? (
+          <div className="flex items-center justify-between mb-[var(--ps-space-4)] mx-auto max-w-[1280px]">
+            <h2
+              className="showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
+            >
+              {block.heading || (locale === "fr" ? "Articles populaires" : "Popular items")}
+            </h2>
+            <a
+              href={catalogHref}
+              className="text-sm font-semibold text-[var(--tf-accent)] hover:underline inline-flex items-center gap-1"
+            >
+              <span>{locale === "fr" ? "Tout voir" : "View all"}</span>
+              <ArrowRight size={15} aria-hidden="true" />
+            </a>
+          </div>
+        ) : (
+          <SectionHeading heading={block.heading || t("storeShopHeading")} subheading={siteTemplateId === "showcase" ? undefined : block.subheading} />
+        )}
         <StorefrontBrowse
           groups={productGroups}
           labels={{ ...browseLabels, loadMore: t("storeLoadMore") }}
           showGroups={Boolean(block.categoryTiles && realCategoryCount >= 2)}
           categoryTiles={Boolean(block.categoryTiles)}
+          appearance={siteTemplateId === "showcase" ? "showcase" : "default"}
+          showcaseLabels={{
+            soldOut: badgeSoldOut,
+            popular: badgePopular,
+            new: badgeNew,
+          }}
           itemMode="links"
           pageSize={block.browsePageSize ?? 12}
           accentColor={accentColor}
@@ -2047,13 +2486,19 @@ async function ServicesEmbedBlockRenderer({
   block,
   tenantId,
   isTeamMember,
+  currency,
+  currencyLocale,
 }: {
   block: ServicesEmbedBlock;
   tenantId?: string;
   isTeamMember?: boolean;
+  currency?: string;
+  currencyLocale?: Locale;
 }) {
   const services = tenantId ? await resolveServicesEmbed(block, tenantId, Boolean(isTeamMember)) : [];
   const layout = block.layout ?? "grid";
+  const displayCurrency = normalizeCurrencyCode(currency) ?? "USD";
+  const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   return (
     <section className="w-full">
       <SectionHeading heading={block.heading || "Our Services"} subheading={block.subheading} />
@@ -2077,10 +2522,12 @@ async function ServicesEmbedBlockRenderer({
                   <div>
                     <div className="flex items-center gap-[var(--ps-space-2)]"><h3 className="text-base font-bold text-[var(--ps-text)]">{svc.title}</h3>{svc.isDraft && <DraftBadge />}</div>
                     {svc.description && <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)] line-clamp-1">{svc.description}</p>}
-                    {svc.duration_minutes && <p className="text-xs text-[var(--ps-muted)]">{svc.duration_minutes} min</p>}
+                    {svc.duration_minutes != null && svc.duration_minutes > 0 && <p className="text-xs text-[var(--ps-muted)]">{svc.duration_minutes} min</p>}
                   </div>
                 </div>
-                {/* TODO: multi-currency not in Phase 5 — hardcoded USD */}<div className="text-sm font-semibold text-[var(--ps-text)]">${svc.price.toFixed(2)}</div>
+                {!isPriceEmpty(svc.price) && (
+                  <div className="text-sm font-semibold text-[var(--ps-text)]">{formatCurrency(svc.price, displayCurrency, locale)}</div>
+                )}
               </div>
             );
           })}
@@ -2104,8 +2551,10 @@ async function ServicesEmbedBlockRenderer({
                   <h3 className="text-base font-bold text-[var(--ps-text)]">{svc.title}</h3>
                   {svc.description && <p className="mt-[var(--ps-space-1)] text-xs text-[var(--ps-muted)] line-clamp-2">{svc.description}</p>}
                   <div className="mt-[var(--ps-space-3)] flex items-center justify-between">
-                    <span className="text-sm font-bold">${svc.price.toFixed(2)}</span>
-                    {svc.duration_minutes && <span className="text-xs text-[var(--ps-muted)]">{svc.duration_minutes} min</span>}
+                    {!isPriceEmpty(svc.price) && (
+                      <span className="text-sm font-bold">{formatCurrency(svc.price, displayCurrency, locale)}</span>
+                    )}
+                    {svc.duration_minutes != null && svc.duration_minutes > 0 && <span className="text-xs text-[var(--ps-muted)]">{svc.duration_minutes} min</span>}
                   </div>
                 </div>
               </div>
@@ -2117,7 +2566,7 @@ async function ServicesEmbedBlockRenderer({
   );
 }
 
-async function PromotionsEmbedBlockRenderer({
+export async function PromotionsEmbedBlockRenderer({
   block,
   tenantId,
   siteSlug,
@@ -2132,12 +2581,20 @@ async function PromotionsEmbedBlockRenderer({
   hasMenuEmbedOnPage?: boolean;
   scopeInternalLinks?: boolean;
 }) {
-  if (!tenantId || block.enabled === false) return null;
-  const promotions = await resolvePromotionsEmbed(block, tenantId, {
-    hasMenuEmbedOnPage,
-    hasPublishedMenuPage,
-  });
-  if (promotions.length === 0) return null;
+  if (block.enabled === false) return null;
+  const promotions = tenantId
+    ? await resolvePromotionsEmbed(block, tenantId, {
+        hasMenuEmbedOnPage,
+        hasPublishedMenuPage,
+      })
+    : block.previewPromotions ?? [];
+
+  // Search now lives in its own section above the hero (ShowcaseSearchBar,
+  // rendered from the page shell) — this block is the compact promo card
+  // only. No active promotions: absent, no gap.
+  if (promotions.length === 0 && !block.fallback) {
+    return null;
+  }
 
   const layoutFor = (promotion: (typeof promotions)[number]) =>
     block.layout && block.layout !== "auto" ? block.layout : promotion.layout ?? "banner";
@@ -2148,6 +2605,58 @@ async function PromotionsEmbedBlockRenderer({
       ? resolveSiteHref(siteSlug, href)
       : href;
   };
+
+  if (block.variant === "carousel") {
+    let pauseLabel = "Pause slideshow";
+    let resumeLabel = "Resume slideshow";
+    let slideNofMLabel = "Slide {current} of {total}";
+    let percentOffLabel = "{percent}% off";
+    let specialPriceLabel = "Special price";
+    let freeDeliveryLabel = "Free delivery";
+    let defaultOfferLabel = "Special offer";
+    let promotionsLabel = "Promotions";
+    let slideNavLabel = "Slide navigation";
+
+    try {
+      const publicT = await getTranslations("PublicSite");
+      pauseLabel = publicT("promoPause");
+      resumeLabel = publicT("promoResume");
+      slideNofMLabel = publicT("promoSlideNofM", { current: "{current}", total: "{total}" });
+      percentOffLabel = publicT("promoPercentOff", { percent: "{percent}" });
+      specialPriceLabel = publicT("promoSpecialPrice");
+      freeDeliveryLabel = publicT("promoFreeDelivery");
+      defaultOfferLabel = publicT("promoDefaultOffer");
+      promotionsLabel = publicT("promotionsAriaLabel");
+      slideNavLabel = publicT("promoSlideNavAriaLabel");
+    } catch {
+      // Keep defaults when translations unavailable
+    }
+
+    const labels = {
+      pause: pauseLabel,
+      resume: resumeLabel,
+      slideNofM: slideNofMLabel,
+      percentOff: percentOffLabel,
+      specialPrice: specialPriceLabel,
+      freeDelivery: freeDeliveryLabel,
+      defaultOffer: defaultOfferLabel,
+      promotionsLabel,
+      slideNavLabel,
+    };
+    const mappedPromotions = promotions.map((p) => ({
+      ...p,
+      destination_href: safeHrefFor(p) ?? "",
+    }));
+
+    return (
+      <section className="w-full">
+        <PromoCarousel
+          promotions={mappedPromotions}
+          labels={labels}
+        />
+      </section>
+    );
+  }
   const offerLabel = (promotion: (typeof promotions)[number]) =>
     promotion.offer_type === "percent_off" && promotion.percent_off
       ? `${promotion.percent_off}% off`
@@ -2155,7 +2664,9 @@ async function PromotionsEmbedBlockRenderer({
         ? "Special price"
         : promotion.offer_type === "free_delivery"
           ? "Free delivery"
-          : "Promotion";
+          : promotion.offer_type === "highlight"
+            ? "Featured"
+            : "Promotion";
   const cta = (promotion: (typeof promotions)[number], className: string) => {
     const href = safeHrefFor(promotion);
     if (!href || !promotion.cta_label?.trim()) return null;
@@ -2233,7 +2744,7 @@ async function PromotionsEmbedBlockRenderer({
 
 // ── 12. Menu Embed Block (Live Data) ───────────────────────────────────────
 
-async function MenuEmbedBlockRenderer({
+export async function MenuEmbedBlockRenderer({
   block,
   tenantId,
   isTeamMember,
@@ -2247,6 +2758,7 @@ async function MenuEmbedBlockRenderer({
   accentColor,
   siteTemplateId,
   sectionAlign,
+  catalogName,
 }: {
   block: MenuEmbedBlock;
   tenantId?: string;
@@ -2262,13 +2774,76 @@ async function MenuEmbedBlockRenderer({
   accentColor?: string;
   siteTemplateId?: string;
   sectionAlign?: "left" | "center";
+  catalogName?: string;
 }) {
   const tableFlameRows = siteTemplateId === "restaurant-table-flame" && block.variant === "rows";
   const savannahEditorial = siteTemplateId === "restaurant-savannah" && block.variant === "editorial";
+  const isShowcase = siteTemplateId === "showcase";
   const displayCurrency = normalizeCurrencyCode(block.currency) ?? normalizeCurrencyCode(currency) ?? "USD";
-  const sections = tenantId ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember), undefined, displayCurrency) : [];
+  const rawSections = tenantId
+    ? await resolveMenuEmbed(block, tenantId, Boolean(isTeamMember), undefined, displayCurrency)
+    : block.previewSections ?? [];
+  let sections = rawSections;
+  if (isShowcase && block.variant === "catalog-carousel" && tenantId) {
+    const existingCount = rawSections.reduce((acc, s) => acc + s.items.length, 0);
+    if (existingCount < 6) {
+      const allResolved = await resolveMenuEmbed(
+        { ...block, selectedItemIds: undefined, limit: 12 },
+        tenantId,
+        Boolean(isTeamMember),
+        undefined,
+        displayCurrency
+      );
+      const existingIds = new Set(rawSections.flatMap((s) => s.items.map((i) => i.id)));
+      // Top-up items keep their real category (merged into the matching
+      // section, or appended as a new section) instead of all landing in
+      // sections[0] — dumping every top-up item into the first section
+      // collapsed real multi-category catalogs (e.g. Rice + Soup) into one
+      // section, which hid "Browse by category" (it needs 2+ categories).
+      const bySectionId = new Map(sections.map((sec) => [sec.id, sec]));
+      let addedCount = 0;
+      for (const sec of allResolved) {
+        if (existingCount + addedCount >= 6) break;
+        const newItems: ResolvedMenuItem[] = [];
+        for (const item of sec.items) {
+          if (existingIds.has(item.id)) continue;
+          newItems.push(item);
+          existingIds.add(item.id);
+          addedCount += 1;
+          if (existingCount + addedCount >= 6) break;
+        }
+        if (newItems.length === 0) continue;
+        const existingSection = bySectionId.get(sec.id);
+        bySectionId.set(sec.id, existingSection
+          ? { ...existingSection, items: [...existingSection.items, ...newItems] }
+          : { ...sec, items: newItems });
+      }
+      sections = Array.from(bySectionId.values());
+    }
+  }
   const locale: Locale = currencyLocale === "fr" ? "fr" : "en";
   const t = await getTranslations("Storefront");
+  let badgeSoldOut = locale === "fr" ? "Épuisé" : "Sold out";
+  let badgePopular = locale === "fr" ? "Populaire" : "Popular";
+  let badgeNew = locale === "fr" ? "Nouveau" : "New";
+  let categoriesTitle = locale === "fr" ? "Parcourir par catégorie" : "Browse by category";
+  let categoryArrowLabel = locale === "fr" ? "Voir" : "View";
+  let categoryItemCount = (count: number) => `${count} ${locale === "fr" ? "article(s)" : count === 1 ? "item" : "items"}`;
+  let offersTitle = locale === "fr" ? "Offres" : "Offers";
+  let relatedItemsTitle = locale === "fr" ? "Vous aimerez peut-être aussi" : "You might also like";
+  try {
+    const publicT = await getTranslations("PublicSite");
+    badgeSoldOut = publicT("badgeSoldOut");
+    badgePopular = publicT("badgePopular");
+    badgeNew = publicT("badgeNew");
+    categoriesTitle = publicT("showcaseCategoriesTitle");
+    categoryArrowLabel = publicT("showcaseCategoryArrowLabel");
+    categoryItemCount = (count: number) => publicT("showcaseCategoryItemCount", { count });
+    offersTitle = publicT("showcaseOffersTitle");
+    relatedItemsTitle = publicT("showcaseRelatedItemsTitle");
+  } catch {
+    // Keep defaults
+  }
   const browseLabels = {
     categories: t("categories"),
     all: t("all"),
@@ -2279,6 +2854,8 @@ async function MenuEmbedBlockRenderer({
     details: t("details"),
     close: t("close"),
     allergens: t("allergens"),
+    yourCart: t("storeCartTitle"),
+    viewCart: t("storeViewCart"),
     soldOut: t("soldOut"),
     required: t("required"),
     optional: t("optional"),
@@ -2310,12 +2887,22 @@ async function MenuEmbedBlockRenderer({
     payOnline: t("payOnline"),
     payingOnline: t("payingOnline"),
     onlinePaymentNotice: t("onlinePaymentNotice"),
+    // Built from the single online-payment currency gate, never a literal.
+    onlinePaymentUnsupportedCurrency: t("onlinePaymentUnsupportedCurrency", {
+      currencies: ONLINE_PAYMENT_CURRENCIES.join(", "),
+    }),
+    onlinePaymentUnavailable: t("onlinePaymentUnavailable"),
+    tableOnlinePaymentUnavailable: t("tableOnlinePaymentUnavailable"),
     placeOrder: t("placeOrder"),
     placingOrder: t("placingOrder"),
     orderSuccessTitle: t("orderSuccessTitle"),
     orderSuccessSubtext: t("orderSuccessSubtext"),
     orderNumber: t("orderNumber"),
     scheduledNotice: t("scheduledNotice"),
+    // {time} stays a placeholder until StorefrontBrowse knows the next
+    // opening; the helper passes it so ICU formatting never sees a missing
+    // value (FORMATTING_ERROR in the builder).
+    ...buildClosedNoticeLabels(t),
     noUpcomingHours: t("noUpcomingHours"),
     backToMenu: t("backToMenu"),
     asap: t("asap"),
@@ -2325,6 +2912,7 @@ async function MenuEmbedBlockRenderer({
     trackOrder: t("trackOrder"),
     copyTrackingLink: t("copyTrackingLink"),
     trackingLinkCopied: t("trackingLinkCopied"),
+    relatedItemsTitle,
   };
   const populatedSections = sections.filter((section: ResolvedMenuSection) => section.items.length > 0);
   const menuItemsTruncated = sections.some((section: ResolvedMenuSection) => section.hasMoreItems || section.hasMoreItemsOverall);
@@ -2401,13 +2989,114 @@ async function MenuEmbedBlockRenderer({
   }));
   const hasMenuItems = hasBrowseableItems(menuGroups);
   if (!hasMenuItems && siteTemplateId === "restaurant-savannah") return null;
+
+  const isShowcaseHomeCarousel = isShowcase && block.variant === "catalog-carousel";
+  const catalogHref = siteSlug ? resolveSiteHref(siteSlug, "menu") : "/menu";
+  // "Browse by category" tiles reuse populatedSections (already resolved for
+  // the Popular grid below) — no extra catalog fetch. No owner-settable
+  // category image exists yet, so the first item's photo is the fallback;
+  // the tile shows a soft --tf-soft panel when that item has no photo either.
+  const categoryTileData = populatedSections.map((sec) => ({
+    id: sec.id,
+    name: sec.name,
+    count: sec.items.length,
+    image: sec.items.find((it) => it.image_url)?.image_url ?? null,
+  }));
+  // Offers: same cards as Popular (reused below), filtered to items with an
+  // active discount — reuses populatedSections too, no extra fetch.
+  const offerItems = populatedSections
+    .flatMap((sec) => sec.items)
+    .filter((it) => Number(it.effective_price ?? it.price) < Number(it.original_price ?? it.price))
+    .slice(0, 8);
+
   return (
     <section className="w-full">
-      <div {...elementPathProps(editMode, sourceMap, "heading")}>
-        <SectionHeading heading={block.heading || "Our Menu"} subheading={block.subheading} align={sectionAlign} />
-      </div>
+      {isShowcaseHomeCarousel && hasMenuItems ? (
+        <div className="mb-8 sm:mb-14">
+          <CategoryTiles
+            categories={categoryTileData}
+            catalogHref={catalogHref}
+            heading={categoriesTitle}
+            itemCountLabel={categoryItemCount}
+            arrowLabel={categoryArrowLabel}
+          />
+        </div>
+      ) : null}
+      {isShowcaseHomeCarousel ? (
+        <div className="flex items-center justify-between mb-[var(--ps-space-4)] max-w-[1280px] mx-auto">
+          <h2
+            {...elementPathProps(editMode, sourceMap, "heading")}
+            className="showcase-section-title text-[18px] sm:text-[22px] font-semibold text-[var(--tf-ink)] leading-[1.25]"
+          >
+            {block.heading || (locale === "fr" ? "Articles populaires" : "Popular items")}
+          </h2>
+          <a
+            href={catalogHref}
+            className="text-sm font-semibold text-[var(--tf-accent)] hover:underline inline-flex items-center gap-1"
+          >
+            <span>{locale === "fr" ? "Tout voir" : "View all"}</span>
+            <ArrowRight size={15} aria-hidden="true" />
+          </a>
+        </div>
+      ) : isShowcase ? (
+        <div {...elementPathProps(editMode, sourceMap, "heading")} className="pt-4 mb-[var(--ps-space-4)] mx-auto max-w-[1280px]">
+          <h1 className="showcase-catalog-title text-[24px] sm:text-[32px] font-bold text-[var(--tf-ink)] leading-[1.2]">
+            {isShowcase && catalogName ? `Browse the ${catalogName}` : block.heading || "Our Menu"}
+          </h1>
+          {block.subheading ? (
+            <p className="mt-1 text-[14px] text-[var(--tf-muted)] line-clamp-1">{block.subheading}</p>
+          ) : null}
+        </div>
+      ) : (
+        <div {...elementPathProps(editMode, sourceMap, "heading")}>
+          <SectionHeading heading={block.heading || "Our Menu"} subheading={isShowcase ? undefined : block.subheading} align={sectionAlign} />
+        </div>
+      )}
       {!hasMenuItems ? (
         <p className={`w-full text-sm text-[var(--ps-muted)] ${sectionAlign === "left" ? "text-left" : "text-center"}`}>{t("menuComingSoon")}</p>
+      ) : isShowcaseHomeCarousel ? (
+        // Showcase home Popular grid: flat 4-column grid across all sections (no per-category sections)
+        <>
+          <div className="mx-auto max-w-[1280px]">
+            <HomePopularCarousel
+              items={populatedSections.flatMap((sec) => sec.items)}
+              currency={displayCurrency}
+              locale={locale}
+              appearance="showcase"
+              showcaseLabels={{ soldOut: badgeSoldOut, popular: badgePopular, new: badgeNew }}
+              siteSlug={siteSlug}
+              orderConfig={orderConfig}
+              labels={browseLabels}
+              closeLabel={browseLabels.close ?? "Close"}
+              relatedItemsEnabled={block.relatedItemsEnabled}
+            />
+          </div>
+          {/* Offers: same cards as Popular, filtered to discounted items only.
+              Small, additive reuse of the same already-resolved data — hidden
+              entirely when nothing is discounted. */}
+          {offerItems.length > 0 ? (
+            <div className="mt-8 sm:mt-14">
+              <h2 className="showcase-section-title mb-[var(--ps-space-4)] mx-auto max-w-[1280px] text-[18px] font-semibold leading-[1.25] text-[var(--tf-ink)] sm:text-[22px]">
+                {offersTitle}
+              </h2>
+              <div className="mx-auto max-w-[1280px]">
+                <HomePopularCarousel
+                  items={offerItems}
+                  currency={displayCurrency}
+                  locale={locale}
+                  appearance="showcase"
+                  showcaseLabels={{ soldOut: badgeSoldOut, popular: badgePopular, new: badgeNew }}
+                  siteSlug={siteSlug}
+                  orderConfig={orderConfig}
+                  labels={browseLabels}
+                  closeLabel={browseLabels.close ?? "Close"}
+                  allCatalogItems={populatedSections.flatMap((sec) => sec.items)}
+                  relatedItemsEnabled={block.relatedItemsEnabled}
+                />
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : (
         <StorefrontBrowse
           groups={menuGroups}
@@ -2438,6 +3127,13 @@ async function MenuEmbedBlockRenderer({
                   ? "catalog-carousel"
                   : "cards"
           }
+          appearance={isShowcase ? "showcase" : "default"}
+          showcaseLabels={{
+            soldOut: badgeSoldOut,
+            popular: badgePopular,
+            new: badgeNew,
+          }}
+          relatedItemsEnabled={block.relatedItemsEnabled}
         >
           {block.variant === "catalog-carousel" ? null : (
             <div className="space-y-[var(--ps-space-8)]">
@@ -2474,10 +3170,18 @@ async function MenuEmbedBlockRenderer({
                         freeDeliveryLabel: it.applied_promotion?.offer_type === "free_delivery" ? t("freeDelivery") : null,
                         isSoldOut: Boolean(it.is_sold_out),
                         isFeatured: Boolean(it.is_featured),
+                        isNew: Boolean(it.is_new),
+                        isPopular: Boolean(it.is_popular ?? it.is_featured),
                       };
                     })}
                     prevLabel={t("carouselPrev")}
                     nextLabel={t("carouselNext")}
+                    appearance={isShowcase ? "showcase" : "default"}
+                    showcaseLabels={{
+                      soldOut: badgeSoldOut,
+                      popular: badgePopular,
+                      new: badgeNew,
+                    }}
                   />
                 ) : (
                   sec.items.map((it) => {
@@ -2552,20 +3256,19 @@ async function MenuEmbedBlockRenderer({
         )}
         </StorefrontBrowse>
       )}
-      {siteSlug && hasMenuItems && (!block.selectedItemIds?.length || menuItemsTruncated) ? (
-        <div className="mt-[var(--ps-space-8)] text-center">
-          {menuItemsTruncated ? <p className="mb-[var(--ps-space-3)] text-sm text-[var(--ps-muted)]">{t("menuItemLimitNotice")}</p> : null}
-          {hasPublishedMenuPage ? (
-            <a
-              href={`/site/${encodeURIComponent(siteSlug)}/menu`}
-              className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold transition-colors"
-            >
-              {t("viewFullMenu")}
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </a>
-          ) : null}
-        </div>
-      ) : null}
+        {!isShowcase && siteSlug && hasMenuItems && (!block.selectedItemIds?.length || menuItemsTruncated) ? (
+          <div className="mt-[var(--ps-space-8)] text-center">
+            {menuItemsTruncated ? <p className="mb-[var(--ps-space-3)] text-sm text-[var(--ps-muted)]">{t("menuItemLimitNotice")}</p> : null}
+            {hasPublishedMenuPage ? (
+              <a
+                href={`/site/${encodeURIComponent(siteSlug)}/menu`}
+                className="ps-button ps-button-secondary inline-flex items-center gap-[var(--ps-space-2)] text-sm font-semibold transition-colors"
+              >
+                {t("viewFullMenu")}
+              </a>
+            ) : null}
+          </div>
+        ) : null}
     </section>
   );
 }
@@ -2575,9 +3278,14 @@ async function MenuEmbedBlockRenderer({
 async function ReservationFormBlockRenderer({
   reservationConfig,
   siteSlug,
+  businessName,
+  coverImageUrl,
 }: {
   reservationConfig?: StorefrontReservationConfig;
+  rentalConfig?: StorefrontRentalConfig;
   siteSlug?: string;
+  businessName?: string;
+  coverImageUrl?: string | null;
 }) {
   const t = await getTranslations("Storefront");
   if (!reservationConfig?.enabled || !reservationConfig.settings.enabled) {
@@ -2614,10 +3322,101 @@ async function ReservationFormBlockRenderer({
     tooManyOpenRequests: t("reservationTooManyOpen"),
     invalidPartySize: t("reservationInvalidParty"),
     requestFailed: t("reservationFailed"),
+    fullyBooked: t("reservationFullyBooked"),
+    guestInformation: t("reservationSectionGuest"),
+    reservationDetails: t("reservationSectionDetails"),
+    guestNotes: t("reservationSectionNotes"),
+    duration: t("reservationDuration"),
+    reservationTime: t("reservationTime"),
+    errorName: t("reservationErrorName"),
+    errorPhone: t("reservationErrorPhone"),
+    errorTime: t("reservationErrorTime"),
   };
   return (
     <section className="w-full">
-      <ReservationRequestForm config={reservationConfig} labels={labels} siteSlug={siteSlug ?? reservationConfig.slug} />
+      <ReservationRequestForm
+        config={reservationConfig}
+        labels={labels}
+        siteSlug={siteSlug ?? reservationConfig.slug}
+        businessName={businessName}
+        coverImageUrl={coverImageUrl}
+      />
+    </section>
+  );
+}
+
+// ── General Booking Form Block ───────────────────────────────────────────────
+
+async function GeneralBookingFormBlockRenderer({
+  reservationConfig,
+  preselectedService,
+  siteSlug,
+  businessName,
+  coverImageUrl,
+}: {
+  reservationConfig?: StorefrontGeneralBookingConfig;
+  preselectedService?: ValidatedPublicService | null;
+  siteSlug?: string;
+  businessName?: string;
+  coverImageUrl?: string | null;
+}) {
+  const t = await getTranslations("Storefront");
+  if (!reservationConfig?.enabled || !reservationConfig.settings.enabled) {
+    return (
+      <section className="w-full">
+        <p className="py-[var(--ps-space-4)] text-center text-sm text-[var(--ps-muted)]">{t("requestNotAvailable")}</p>
+      </section>
+    );
+  }
+  const labels: GeneralBookingFormLabels = {
+    title: t("generalBookingTitle"),
+    subtext: t("generalBookingSubtext"),
+    fullName: t("fullName"),
+    phone: t("phone"),
+    email: t("email"),
+    serviceType: t("serviceType"),
+    chooseDate: t("chooseDate"),
+    chooseTime: t("chooseTime"),
+    specialRequest: t("specialRequest"),
+    alternativeDate: t("alternativeDate"),
+    termsCheckbox: t("termsCheckbox"),
+    marketingCheckbox: t("marketingCheckbox"),
+    submitLabel: t("generalBookingSubmitLabel"),
+    submittingLabel: t("generalBookingSubmittingLabel"),
+    selectedService: t("generalBookingSelectedService"),
+    requestReceived: t("requestReceived"),
+    requestReceivedSubtext: t("requestReceivedSubtext"),
+    requestReference: t("requestReference"),
+    trackRequest: t("trackRequest"),
+    copyTrackingLink: t("copyTrackingLink"),
+    trackingLinkCopied: t("trackingLinkCopied"),
+    backToSite: t("backToSite"),
+    closedThatDay: t("closedThatDay"),
+    checkDetails: t("reservationCheckDetails"),
+    rateLimited: t("reservationRateLimited"),
+    tooManyOpenRequests: t("reservationTooManyOpen"),
+    requestFailed: t("reservationFailed"),
+    errorName: t("reservationErrorName"),
+    errorPhone: t("reservationErrorPhone"),
+    errorService: t("generalBookingErrorService"),
+    errorTime: t("reservationErrorTime"),
+    errorCheckboxes: t("generalBookingErrorCheckboxes"),
+    guestInformation: t("reservationSectionGuest"),
+    bookingDetails: t("generalBookingSectionDetails"),
+    guestNotes: t("reservationSectionNotes"),
+    hoursNotSetLabel: (t as (key: string, values?: Record<string, string | number>) => string)("hoursNotSetYet"),
+    noTimesAvailableLabel: (t as (key: string, values?: Record<string, string | number>) => string)("noTimesAvailable", { days: reservationConfig.settings.max_days_ahead }),
+  };
+  return (
+    <section className="w-full">
+      <GeneralBookingForm
+        config={reservationConfig}
+        labels={labels}
+        siteSlug={siteSlug ?? reservationConfig.slug}
+        businessName={businessName}
+        coverImageUrl={coverImageUrl}
+        preselectedService={preselectedService}
+      />
     </section>
   );
 }
@@ -2638,11 +3437,32 @@ function RichTextBlockRenderer({ block }: { block: RichTextBlock }) {
 
 // ── 12. Legacy CTA Banner Block ──────────────────────────────────────────────
 
-export function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAlign, tableFlame = false, savannah = false }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean; sectionAlign?: "left" | "center"; tableFlame?: boolean; savannah?: boolean }) {
+export function CtaBannerBlockRenderer({ block, siteSlug, scopeInternalLinks, sectionAlign, tableFlame = false, savannah = false, showcase = false }: { block: CtaBannerBlock; siteSlug?: string; scopeInternalLinks?: boolean; sectionAlign?: "left" | "center"; tableFlame?: boolean; savannah?: boolean; showcase?: boolean }) {
   const paletteTheme = tableFlame || savannah;
   const safeCtaHref = block.ctaHref
     ? sanitizeUrl(scopeInternalLinks ? resolveSiteHref(siteSlug, block.ctaHref) : block.ctaHref)
     : "";
+
+  if (showcase) {
+    if (!block.heading && !(block.ctaLabel && safeCtaHref)) return null;
+    return (
+      <section className="w-full">
+        <div className="mx-auto flex max-w-[1280px] flex-col items-center gap-5 rounded-[20px] bg-[var(--tf-soft)] px-6 py-10 text-center text-[var(--tf-on-soft)] sm:px-10 sm:py-12">
+          {block.heading ? (
+            <h2 className="showcase-closing-headline">{block.heading}</h2>
+          ) : null}
+          {block.ctaLabel && safeCtaHref ? (
+            <a
+              href={safeCtaHref}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[var(--tf-accent)] px-6 py-3 text-sm font-semibold text-[var(--tf-on-accent)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tf-accent)]"
+            >
+              {block.ctaLabel}
+            </a>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
 
   if (block.variant === "promo") {
     const safeImage = block.image ? safeImageSrc(block.image) : "";
@@ -2752,12 +3572,19 @@ function SectionEnvelopeWrapper({
   const bg = raw.background as Record<string, unknown> | undefined;
   const container = raw.container as string | undefined;
 
-  const hiddenClass = hiddenOnMobile ? getHiddenOnMobileClass(true) : "";
-  const spacingClass = spacing ? getSpacingClass(spacing as never) : getSpacingClass("default");
-  const bgStyle = bg ? getBackgroundStyle(bg as never) : undefined;
-  const hasOverlay = Boolean(bg && typeof bg.overlay === "number" && [0.25, 0.5, 0.75].includes(bg.overlay as number));
   const tableFlame = siteTemplateId === "restaurant-table-flame";
   const savannah = siteTemplateId === "restaurant-savannah";
+  const isShowcase = siteTemplateId === "showcase";
+  // Showcase hero: full-bleed, exact 320/520px band height — no outer spacing bleed.
+  const isShowcaseHero = isShowcase && block.type === "hero" && (block as HeroBlock).variant === "full-bleed";
+  const hiddenClass = hiddenOnMobile ? getHiddenOnMobileClass(true) : "";
+  // Showcase removes the generic py-10 sm:py-16 section padding entirely —
+  // section-to-section rhythm instead comes from a single CSS rule
+  // (main > * + *, globals.css) giving a uniform 32px mobile / 56px desktop
+  // gap between top-level Home sections.
+  const spacingClass = isShowcase ? "" : spacing ? getSpacingClass(spacing as never) : getSpacingClass("default");
+  const bgStyle = bg ? getBackgroundStyle(bg as never) : undefined;
+  const hasOverlay = Boolean(bg && typeof bg.overlay === "number" && [0.25, 0.5, 0.75].includes(bg.overlay as number));
   const fullBleedTableFlameBlock = tableFlame && (
     (block.type === "hero" && (block as HeroBlock).variant === "full-bleed") ||
     (block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo")
@@ -2766,11 +3593,19 @@ function SectionEnvelopeWrapper({
     (block.type === "hero" && (block as HeroBlock).variant === "full-bleed") ||
     (block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo")
   );
-  const containerClass = fullBleedTableFlameBlock || fullBleedSavannahBlock
-    ? "w-full"
-    : tableFlame || savannah
-      ? "mx-auto w-full max-w-6xl px-6"
-      : getContainerClass(container as never);
+  const containerClass = isShowcaseHero
+    ? "w-full" // Hero: full-bleed edge to edge (viewport width), never constrained.
+    : isShowcase
+      // w-full is required (not just mx-auto): these sections are flex items
+      // of <main> (column flex, for the 32/56px gap), and an auto-margin
+      // flex item sizes to its widest descendant's intrinsic content
+      // instead of stretching, unless width is explicit.
+      ? "mx-auto w-full max-w-[1280px] px-5 sm:px-6" // one shared container, max 1280px, 20px mobile / 24px desktop
+      : fullBleedTableFlameBlock || fullBleedSavannahBlock
+        ? "w-full"
+        : tableFlame || savannah
+          ? "mx-auto w-full max-w-6xl px-6"
+          : getContainerClass(container as never);
   const tableFlameCta = tableFlame && block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo";
   const savannahCta = savannah && block.type === "cta_banner" && (block as CtaBannerBlock).variant !== "promo";
   const tableFlameDots = tableFlame && bg?.pattern === "dots";
@@ -2833,6 +3668,8 @@ export async function BlockRenderer({
   currencyLocale,
   orderConfig,
   reservationConfig,
+  rentalConfig,
+  preselectedService,
   siteSlug,
   hasPublishedMenuPage,
   hasMenuEmbedOnPage,
@@ -2842,6 +3679,8 @@ export async function BlockRenderer({
   sectionAlign,
   businessName,
   businessLogo,
+  catalogName,
+  coverImageUrl,
 }: {
   block: unknown;
   tenantId?: string;
@@ -2853,6 +3692,9 @@ export async function BlockRenderer({
   currencyLocale?: Locale;
   orderConfig?: StorefrontOrderConfig;
   reservationConfig?: StorefrontReservationConfig;
+  rentalConfig?: StorefrontRentalConfig;
+  /** Validated ?service=<id> for the general booking form only. */
+  preselectedService?: ValidatedPublicService | null;
   siteSlug?: string;
   hasPublishedMenuPage?: boolean;
   hasMenuEmbedOnPage?: boolean;
@@ -2862,6 +3704,8 @@ export async function BlockRenderer({
   sectionAlign?: "left" | "center";
   businessName?: string;
   businessLogo?: string;
+  catalogName?: string;
+  coverImageUrl?: string | null;
 }) {
   if (!block || typeof block !== "object" || !("type" in block)) {
     return null;
@@ -2885,17 +3729,37 @@ export async function BlockRenderer({
     !b.address && !b.phone && !b.email && !b.hours &&
     !b.hoursTable?.length && !b.locations?.length && !b.directionsUrl && !b.mapQuery
   ) return null;
+  // Compact About (showcase) hides entirely with no story and no image — matching
+  // AboutBlockRenderer's own hide condition. Checked here too so BlockRenderer
+  // skips the SectionEnvelopeWrapper entirely instead of leaving a stray empty
+  // flex item that still consumes the main > * + * gap.
+  if (!editMode && siteTemplateId === "showcase" && b.type === "about" && !b.story && !b.founderImage) {
+    return null;
+  }
 
   let content: React.ReactNode;
   switch (b.type) {
     case "hero":
-      content = <HeroBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} editMode={editMode} sourceMap={blockSourceMap} accentColor={accentColor} tableFlame={siteTemplateId === "restaurant-table-flame"} savannah={siteTemplateId === "restaurant-savannah"} businessName={businessName} />;
+      content = <HeroBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} editMode={editMode} sourceMap={blockSourceMap} accentColor={accentColor} tableFlame={siteTemplateId === "restaurant-table-flame"} savannah={siteTemplateId === "restaurant-savannah"} showcase={siteTemplateId === "showcase"} businessName={businessName} />;
       break;
     case "features":
       content = <FeaturesBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} />;
       break;
     case "about":
-      content = <AboutBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} />;
+      {
+        let aboutHeading = "About";
+        let aboutEyebrow = "About us";
+        let aboutViewCatalog = "View {catalog}";
+        try {
+          const publicT = await getTranslations("PublicSite");
+          aboutHeading = publicT("about");
+          aboutEyebrow = publicT("showcaseAboutEyebrow");
+          aboutViewCatalog = publicT("showcaseAboutViewCatalog", { catalog: "{catalog}" });
+        } catch {
+          // Keep default
+        }
+        content = <AboutBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} businessLogo={businessLogo} defaultAboutHeading={aboutHeading} eyebrow={aboutEyebrow} viewCatalogTemplate={aboutViewCatalog} catalogName={catalogName} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} />;
+      }
       break;
     case "gallery":
       content = <GalleryBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} businessName={businessName} />;
@@ -2906,7 +3770,34 @@ export async function BlockRenderer({
     case "contact":
       {
         const t = await getTranslations("Storefront");
-        content = <ContactBlockRenderer block={b} editMode={editMode} sourceMap={blockSourceMap} nextDayLabel={t("nextDay")} closedLabel={t("closed")} siteTemplateId={siteTemplateId} sectionAlign={sectionAlign} />;
+        let hoursAndLocationLabel = "Hours & Location";
+        let openingHoursLabel = "Opening Hours";
+        let locationLabel = "Location";
+        let getDirectionsLabel = "Get directions";
+        try {
+          const publicT = await getTranslations("PublicSite");
+          hoursAndLocationLabel = publicT("contactHoursAndLocation");
+          openingHoursLabel = publicT("contactOpeningHours");
+          locationLabel = publicT("contactLocation");
+          getDirectionsLabel = publicT("contactGetDirections");
+        } catch {
+          // Keep defaults
+        }
+        content = (
+          <ContactBlockRenderer
+            block={b}
+            editMode={editMode}
+            sourceMap={blockSourceMap}
+            nextDayLabel={t("nextDay")}
+            closedLabel={t("closed")}
+            siteTemplateId={siteTemplateId}
+            sectionAlign={sectionAlign}
+            hoursAndLocationLabel={hoursAndLocationLabel}
+            openingHoursLabel={openingHoursLabel}
+            locationLabel={locationLabel}
+            getDirectionsLabel={getDirectionsLabel}
+          />
+        );
       }
       break;
     case "faq":
@@ -2949,6 +3840,8 @@ export async function BlockRenderer({
           block={b}
           tenantId={tenantId}
           isTeamMember={isTeamMember}
+          currency={currency}
+          currencyLocale={currencyLocale}
         />
       );
       break;
@@ -2968,6 +3861,7 @@ export async function BlockRenderer({
           accentColor,
           siteTemplateId,
           sectionAlign,
+          catalogName,
         };
         content = siteTemplateId === "restaurant-savannah"
           ? await MenuEmbedBlockRenderer(menuProps)
@@ -2988,15 +3882,69 @@ export async function BlockRenderer({
       content = <RichTextBlockRenderer block={b} />;
       break;
     case "cta_banner":
-      content = <CtaBannerBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} sectionAlign={sectionAlign} tableFlame={siteTemplateId === "restaurant-table-flame"} savannah={siteTemplateId === "restaurant-savannah"} />;
+      content = <CtaBannerBlockRenderer block={b} siteSlug={siteSlug} scopeInternalLinks={scopeInternalLinks} sectionAlign={sectionAlign} tableFlame={siteTemplateId === "restaurant-table-flame"} savannah={siteTemplateId === "restaurant-savannah"} showcase={siteTemplateId === "showcase"} />;
       break;
     case "menu_order":
-      return null;
+      content = <OrdersList siteSlug={siteSlug} catalogName={catalogName} />;
+      break;
     case "reservation_form":
       content = (
         <ReservationFormBlockRenderer
           reservationConfig={reservationConfig}
           siteSlug={siteSlug}
+          businessName={businessName}
+          coverImageUrl={coverImageUrl}
+        />
+      );
+      break;
+    case "general_booking_form":
+      content = (
+        <GeneralBookingFormBlockRenderer
+          reservationConfig={reservationConfig}
+          preselectedService={preselectedService}
+          siteSlug={siteSlug}
+          businessName={businessName}
+          coverImageUrl={coverImageUrl}
+        />
+      );
+      break;
+    case "booking_bar":
+      content = (
+        <BookingBarBlock
+          rentalConfig={rentalConfig}
+          siteSlug={siteSlug}
+          heading={(b as { heading?: string }).heading}
+          subheading={(b as { subheading?: string }).subheading}
+        />
+      );
+      break;
+    case "fleet_cards":
+      content = (
+        <FleetCardsBlock
+          rentalConfig={rentalConfig}
+          siteSlug={siteSlug}
+          heading={(b as { heading?: string }).heading}
+          subheading={(b as { subheading?: string }).subheading}
+        />
+      );
+      break;
+    case "fleet_grid":
+      content = (
+        <FleetGridBlock
+          rentalConfig={rentalConfig}
+          siteSlug={siteSlug}
+          heading={(b as { heading?: string }).heading}
+          subheading={(b as { subheading?: string }).subheading}
+        />
+      );
+      break;
+    case "booking_form":
+      content = (
+        <BookingFormBlock
+          rentalConfig={rentalConfig}
+          siteSlug={siteSlug}
+          heading={(b as { heading?: string }).heading}
+          subheading={(b as { subheading?: string }).subheading}
         />
       );
       break;
