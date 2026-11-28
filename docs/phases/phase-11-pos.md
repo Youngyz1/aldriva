@@ -1,81 +1,96 @@
-# Phase 11: POS Integration Framework
+# Phase 11: Native POS
 
 ---
 
-## STATUS (verified 2026-10-20)
+## STATUS (2026-11-28)
 
-**NOT STARTED.** No `lib/pos*`, no POS routes, no `app/dashboard/org/[id]/pos`, no Square/Clover/Toast references anywhere in `*.ts`. (VERIFIED — globs/greps empty.) Docs consistently mark it PLANNED.
+**PLANNED - docs/design only.** No POS code, no POS migrations, no DB changes applied. This phase doc is the repo roadmap entry; the authoritative design baseline is [`docs/handoff/pos-design.md`](../handoff/pos-design.md) (v4.3, owner-approved baseline 2026-11-28).
 
-## What it is and why it matters (no prior context needed)
-Many restaurants and shops already run an in-store **Point of Sale** (Square, Clover, Toast, Shopify POS) at the counter. Today Aldriva's online menu/orders and the shop's in-store till are **siloed**: selling an item at the counter doesn't reduce Aldriva stock, and an Aldriva online order doesn't reach the till.
+## Naming (important)
 
-**POS Integration** connects them: Aldriva listens to the POS's sales events, normalizes them into Aldriva's own order/inventory model, and (optionally) pushes online orders back to the POS. Result: one stock count, one sales picture, no overselling.
+- **Repo roadmap phase:** "Phase 11: Native POS" (this document).
+- **POS internal build phases:** 0-8 inside the native POS program (see build order below). Do not confuse repo Phase 11 with internal POS Phase 0-8.
 
-**Why it matters:** it removes the biggest reason a real restaurant would *not* adopt Aldriva ordering — double data entry. **Depends on Phase 9 (Public API) and Phase 10 (Webhooks)** for the auth and event plumbing.
+## What it is and why it matters
 
-## Prerequisites
-- Phase **9** (API keys/scopes) and Phase **10** (webhooks) — the connectors are just API clients + webhook receivers.
-- Phase **8** branch model (multi-location) for per-terminal mapping.
+Aldriva Native POS is a first-party point-of-sale for in-person sales across all Aldriva business types. It reuses Aldriva's existing tenant, staff/permissions, inventory, orders/kitchen, customer, and payment systems instead of creating parallel sources of truth. The old external-POS integration plan (Square/Clover/Toast/Shopify POS) is deferred to [`docs/phases/phase-15-pos-connectors.md`](./phase-15-pos-connectors.md).
 
-## Risks
-- **Per-vendor API churn & OAuth complexity** (Square/Clover/Toast each differ) — high maintenance surface.
-- **Inventory correctness**: bidirectional sync can fight itself (echo loops); needs idempotent, source-of-truth rules.
-- **Scope creep**: hardware/terminal management can balloon; keep to software sync.
+## Goals
 
-## Proposed first task
-Author the POS-connections migration (connection record, terminal map, normalized-sales table) and one connector (Square) that receives a sale webhook and writes a normalized in-store sale — with an idempotency test.
+- Sell in person with the same business, staff, inventory, customer, and reporting foundations Aldriva already uses.
+- Keep `inventory_*` as the only stock authority; POS stock writes happen in the same transaction as the sale.
+- Support all Aldriva business types from first release, with business-type capabilities determining which POS features appear.
+- Support worldwide per-business currency with integer minor units and ISO 4217 currency codes; no hard-coded currency/symbol/decimals.
+- Support offline-first first release with idempotency keys/local queue designed in from the first sale function.
+- Support tender abstraction now (cash, card_external, card_stripe, mobile_money, crypto, other) while deferring unverified providers.
+- Produce receipts/printing flows (ESC/POS USB, ESC/POS Bluetooth, browser print) with branding aligned to `DESIGN.md`.
 
-## Migration numbers
-Old plan names `migration_132_pos_connectors` — **consumed** (actual 132 = business types/branches). **Assign at build time from the register.** Next free as of 2026-10-20: **186**.
+## Owner decisions summary
 
----
+Authoritative detail lives in [`docs/handoff/pos-design.md`](../handoff/pos-design.md). Do not duplicate it here; this section is a short index.
 
-## ORIGINAL PLAN (kept below; superseded by the STATUS block above where they disagree)
+- **Sale model:** Option A dedicated `pos_*` tables; existing `orders` unchanged; no second stock system.
+- **Inventory:** `inventory_*` only stock authority; `products.stock_quantity` never written by POS; POS/supply use approved core/wrapper inventory movement model.
+- **Money/tax:** integer minor units + ISO 4217 on every money row; per-business currency; no conversion in v1; per-line half-up rounding; tax per sale line; `prices_include_tax` per business; sale-level discounts out of v1.
+- **Offline:** offline in first release; Decision A for insufficient stock at sync (record sale, do not apply stock movement, `stock_applied=false`, anomaly+review; no negative stock). Offline permission revocation accepts+flags completed offline sales and blocks privileged actions after sync.
+- **Void/refund:** owner decision 2026-11-28 - full void restocks every line with `stock_applied=true` via `pos_void` through core in same lock order; `stock_applied=false` never restocked; partial returns go through refund path.
+- **Dine-in:** Option 1 - POS sale + kitchen `orders` row in one DB transaction, no compensation; kitchen row `source='pos'`, excluded from sales reports by enforced shared sales view, no own payment.
+- **Printing:** ESC/POS USB, ESC/POS Bluetooth, browser print. Staff see own POS view; managers see all with separate permissions.
+- **Tender:** tender layer now, providers later; mobile money deferred/unverified; crypto tender exists but hidden in POS UI until verified.
+- **Migrations:** `db/` canonical with fail-closed rollback + verification; hand-applied; forward mirrored byte-identical to `supabase/migrations` in migration-number order (DEC-0067); rollback/verification never mirrored.
 
-## 1. Objective
-Create an integration framework connecting physical Point of Sale (POS) systems (Square, Clover, Toast, Shopify POS) to Aldriva, unifying in-store and online sales, inventory, and receipts without replacing existing merchant hardware.
+## Migration allocation
 
-## 2. Scope
-- Connector adapters for major POS systems (Square Webhook/OAuth, Clover REST API, Toast API, Shopify POS).
-- Unified sales event ingestion normalizer (`lib/pos/sales-normalizer.ts`).
-- Real-time inventory synchronization preventing online over-selling of in-store inventory.
-- POS terminal management interface in the tenant dashboard (`/dashboard/org/[id]/pos`).
+| Number | Purpose | Status |
+|---:|---|---|
+| 274 | Shared prerequisite: `staff_permissions.domain` CHECK expansion (`supply,pos,loyalty`) + `inventory_apply_movement` 9-arg reference-aware replacement/core-wrapper model | Reserved / not drafted; owner-approved spec in `docs/handoff/pos-design.md`; re-check free numbers across all branches/worktrees before drafting |
+| 275-279 | Supply chain migrations | Reserved / not drafted; blocked on 274; see `docs/handoff/supply-design.md` |
+| 280 | Function grant hardening | **Taken** by `security/function-grants` (`db/migration_280_function_grant_hardening.sql`, commit `b2123a3f0`, not applied). REVOKE/GRANT on four named functions (`check_email_pending_deletion` 95/96, `reserve_seats_atomic` 181/182, `assign_seat_to_invitation_atomic` 187/188, `ensure_business_organizer` 274/275) PLUS CREATE OR REPLACE on `reserve_seats_atomic` (101) and `ensure_business_organizer` (196); no dynamic loop over `pg_proc`; does not touch `inventory_apply_movement` |
+| 281+ | Native POS migrations | Reserved / not drafted; starts after 274 lands |
 
-## 3. Out of Scope
-- Custom proprietary hardware manufacturing.
-- Direct credit card processing bypassing external POS merchant accounts.
+## Build order (POS internal phases 0-8)
 
-## 4. Existing Dependencies
-- Canonical entity model `organizers.id` and branch hierarchy (Phase 8).
-- Connected accounts architecture (`migration_108`–`110`).
-- Public API and webhook engine (Phases 9–10).
+**Prerequisite gate (before POS Phase 1): Migration 274** - shared prerequisite (`staff_permissions.domain` CHECK expansion for `supply,pos,loyalty` + `inventory_apply_movement` 9-arg core/wrapper replacement). 274 is **not** a POS build phase; it is a prerequisite gate that must land (and be verified/rolled-back safely) before POS Phase 1. Supply migrations 275-279 remain reserved for supply; suppliers stay in POS Phase 6.
 
-## 5. Tasks
-- [ ] Task 11.1: Author `db/migration_132_pos_connectors.sql` (and rollback twin) for POS connections, terminal logs, and normalized sales.
-- [ ] Task 11.2: Implement Square and Clover webhook receivers and event normalizers.
-- [ ] Task 11.3: Build bi-directional inventory sync worker.
-- [ ] Task 11.4: Build POS connection settings UI in tenant dashboard.
-- [ ] Task 11.5: Author automated tests in `lib/__tests__/pos-framework.test.cjs` and append to `package.json`.
+| POS phase | Name | Depends on | Gate summary |
+|---:|---|---|---|
+| 0 | Design approval | Owner approval | Docs/design baseline approved; no code/migrations |
+| 1 | Sellable-to-inventory link, money helper, spreadsheet import | Phase 0, **Migration 274 prerequisite gate** | Sellable mapping, money/tax helpers, import flow defined; full DDL/RLS approved before migrations |
+| 2 | POS core: registers, shifts, atomic idempotent sale function, cash, receipt, staff and manager views | Phase 1 | Registers/shifts/sale/receipt/cash flows; atomic idempotent sale function; staff own view and manager all view |
+| 3 | Split payment, tender layer, held orders, customers, three printing drivers | Phase 2 | Tender abstraction; split/held orders; customers; ESC/POS USB, ESC/POS Bluetooth, browser print |
+| 4 | Refunds, voids, reports, CSV, X/Z | Phase 3 | Refund/void rules; reports; CSV export; X/Z cash reports; append-only audit |
+| 5 | Loyalty ledger | Phase 4 | Loyalty ledger/accounts only as approved; no earn/redeem rules beyond approved scope |
+| 6 | Suppliers, purchase orders, receiving | Phase 4, **Migration 274 prerequisite gate**; supply migrations 275-279 reserved | Suppliers/PO/receiving; supply stays here (not before POS Phase 1) |
+| 7 | Offline | Phases 2-4 | Offline queue/sync/review; Decision A anomalies; provisional receipts; permission-revocation handling |
+| 8 | External connectors | Phase 7 | Separate connectors phase doc; not part of native POS first release |
 
-## 6. Acceptance Criteria
-- [ ] In-store sales processed on a connected POS terminal automatically decrement Aldriva stock and appear in the unified sales dashboard.
-- [ ] Online sales trigger stock adjustments on connected POS systems.
-- [ ] All tests passing.
+Offline idempotency keys and the local-queue contract are designed in Phase 2 with the atomic sale function; Phase 7 completes the offline work.
 
-## 7. Current Status
-**PLANNED**
+## Gate before each implementation phase
 
-## 8. Completed Work
-- `connected_accounts` and `channel_assets` data models deployed in migration 108/109.
+- `npm ci` (no node_modules junction in fresh worktree)
+- `npx next typegen`
+- `npx eslint <touched files>`
+- `npx tsc --noEmit`
+- "use server" export check where relevant
+- `npm run build`
+- `npm test` against baseline; new tests registered in `test-files.json`
+- en/fr key parity, zero duplicates
+- Before each phase migration is written: full DDL/RLS for that phase in the design doc and owner approval
 
-## 9. Remaining Work
-- Tasks 11.1 through 11.5.
+## Risks / open items (must resolve before relevant phase)
 
-## 10. Known Issues
-- None.
+- Paid-ins/cash drops modeled in v1?
+- E.164 library/country-default mapping for customers.
+- Tested Bluetooth printer model list.
+- Fiscal/e-invoicing jurisdiction scope (UNVERIFIED).
+- Offline dine-in caps/hours parity with web order-submit.
+- Exact loyalty earn/redeem rules/expiry (v1 recommended none).
 
-## 11. Verification Requirements
-- `npm test` passes 100%.
+## References
 
-## 12. Next Step
-Execute after Phase 10 completion.
+- [`docs/handoff/pos-design.md`](../handoff/pos-design.md) - authoritative design baseline
+- [`docs/handoff/pos-aldriva-recon.md`](../handoff/pos-aldriva-recon.md) - Aldriva recon
+- [`docs/handoff/pos-olgax-analysis.md`](../handoff/pos-olgax-analysis.md) - Olgax analysis
+- [`docs/phases/phase-15-pos-connectors.md`](./phase-15-pos-connectors.md) - deferred external connectors
+- [`docs/DECISIONS.md`](../DECISIONS.md) - DEC-0069, DEC-0008 status

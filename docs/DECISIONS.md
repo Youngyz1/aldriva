@@ -61,7 +61,7 @@
   - Access is mediated exclusively by server-verified entitlement checks generating short-lived signed URLs (~120s TTL).
 
 ### DEC-0008: POS Integration Strategy (Integrate & Normalize, Don't Replace)
-- **Status**: Established Principle (for Phase 11)
+- **Status**: Superseded by DEC-0069 for native POS direction; retained as historical context for future external POS connectors.
 - **Key Tenets**:
   - Physical businesses frequently possess existing POS hardware (Square, Clover, Toast).
   - Aldriva provides integration adapters to ingest and normalize sales, inventory, and menu items across channels rather than forcing merchants to abandon existing hardware.
@@ -691,3 +691,21 @@ Verification: changed-file ESLint clean; `tsc --noEmit` clean for changed files;
 - **Consequences**:
   - (1) The redirect clears `target.search` (drops `?lang=fr` / `utm_*`). Acceptable unless a preview or campaign link needs those params; revisit if such links are introduced.
   - (2) A real organizer could claim the slug `showcase-preview` and be shadowed by the redirect. Cheapest fix is to reserve that slug in the slug validator at site creation. Suggested, not built now.
+
+## DEC-0069 — Native POS replaces the integrate-and-normalize strategy as the primary POS direction
+
+- **Decision Date**: 2026-11-28
+- **Status**: Active (owner-approved baseline; implementation not started)
+- **Context**: DEC-0008 assumed Aldriva would primarily integrate with existing external POS hardware. The owner decided Aldriva needs a first-party native POS built on the existing inventory, staff, order, and tenant systems, with external connectors deferred until after the native POS is usable.
+- **Decision**:
+  - Aldriva Native POS is the primary POS direction. External POS connectors (Square, Clover, Toast, Shopify POS, etc.) are deferred to a later connectors phase after native POS Phase 7.
+  - **Sale record model:** Option A - dedicated `pos_*` tables. The existing `orders` table is unchanged; no second stock system. All stock movements go through `inventory_*` in the same transaction as the sale; `products.stock_quantity` is never written by POS.
+  - **Inventory authority:** `inventory_*` is the only stock authority. POS/supply writes go through the approved core/wrapper model defined in `docs/handoff/pos-design.md`.
+  - **Money:** integer minor units + ISO 4217 currency code on every money row; per-business currency worldwide; no hard-coded currency/symbol/decimals; no currency conversion in v1.
+  - **Offline:** offline sales are accepted and flagged for review/sync (Decision A for insufficient stock at sync: record sale, do not apply stock movement, `stock_applied=false`, anomaly + review). No negative stock.
+  - **Build order:** staged build starting with migration 274 as the shared prerequisite, then POS phases 0-8 as defined in `docs/handoff/pos-design.md` and `docs/phases/phase-11-pos.md`.
+- **Consequences**:
+  - (1) `docs/phases/phase-11-pos.md` is rewritten as Native POS; the old external-POS plan moves to a separate POS connectors phase doc.
+  - (2) Migration 274 is a high-risk shared prerequisite (domain CHECK + inventory movement core/wrapper) and must be owner-approved at DDL/RLS before drafting/applying.
+  - (3) External POS normalization work is not discarded; it becomes a later connector layer over Aldriva's native POS/order/inventory contracts.
+
